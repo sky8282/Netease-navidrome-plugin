@@ -1,0 +1,100 @@
+{
+  "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
+  "name": "Netease Music Plugin",
+  "author": "sky8282",
+  "version": "0.0.1",
+  "description": "下载歌词、Qobuz-PDF (国内需科学网络)、专辑封面及歌手头像",
+  "website": "https://github.com/sky8282/Netease-navidrome-plugin",
+  "permissions": {
+    "users": {
+      "reason": "开启写入本地权限，否则插件无法启动"
+    },
+    "http": {
+      "reason": "向网易云和 Qobuz 请求元数据与媒体文件",
+      "requiredHosts": [
+        "music.163.com",
+        "interface3.music.163.com",
+        "*.music.126.net",
+        "www.qobuz.com",
+        "static.qobuz.com"
+      ]
+    },
+    "library": {
+      "reason": "定位物理文件所在目录以直写 LRC、PDF 及 JPG 文件",
+      "filesystem": true
+    },
+    "subsonicapi": {
+      "reason": "通过内部接口反查歌曲信息以实现绝对路径推导"
+    },
+    "kvstore": {
+      "reason": "缓存网易云 API 的解析 ID 与图片链接以提升响应速度",
+      "maxSize": "1048576"
+    }
+  },
+  "config": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "enable_debug_log": {
+          "type": "boolean",
+          "title": "开启详细 Debug 日志",
+          "default": false
+        },
+        "enable_write_lyrics": {
+          "type": "boolean",
+          "title": "写入歌词 (.lrc)",
+          "default": true
+        },
+        "enable_write_pdf": {
+          "type": "boolean",
+          "title": "写入画册 (.pdf)",
+          "default": true
+        },
+        "enable_write_cover_image": {
+          "type": "boolean",
+          "title": "写入专辑封面 (cover.jpg)",
+          "default": true
+        },
+        "enable_write_artist_image": {
+          "type": "boolean",
+          "title": "写入歌手头像 (artist.jpg)",
+          "default": true
+        },
+        "enable_lyrics": {
+          "type": "boolean",
+          "title": "全局歌词抓取 API (供某些客户端请求)",
+          "default": true
+        },
+        "enable_qobuz_pdf": {
+          "type": "boolean",
+          "title": "Qobuz PDF 获取",
+          "default": true
+        },
+        "qobuz_auth_tokens": {
+          "type": "string",
+          "title": "Qobuz Auth Tokens",
+          "default": "dzDadAiP1ePUy3x1CIEbJ-VKcxQFHcB6f3eRlNSrOjPrwwxFiYckt0l5o7pevFMiAmGqbIroofkofYvovZlD0g"
+        },
+        "image_resolution": {
+          "type": "string",
+          "title": "可自定义网易云支持的图片分辨率",
+          "default": "1200"
+        }
+      }
+    },
+    "uiSchema": {
+      "type": "VerticalLayout",
+      "elements": [
+        { "type": "Control", "scope": "#/properties/enable_debug_log" },
+        { "type": "Control", "scope": "#/properties/enable_write_lyrics" },
+        { "type": "Control", "scope": "#/properties/enable_write_pdf" },
+        { "type": "Control", "scope": "#/properties/enable_write_cover_image" },
+        { "type": "Control", "scope": "#/properties/enable_write_artist_image" },
+        { "type": "Control", "scope": "#/properties/enable_lyrics" },
+        { "type": "Control", "scope": "#/properties/enable_qobuz_pdf" },
+        { "type": "Control", "scope": "#/properties/qobuz_auth_tokens" },
+        { "type": "Control", "scope": "#/properties/image_resolution" }
+      ]
+    }
+  }
+}
