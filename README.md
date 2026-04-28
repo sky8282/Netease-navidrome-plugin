@@ -20,7 +20,7 @@
 * 📀 打开专辑页
 * 👤 打开歌手页
 
-## 🚀 从 Releases 下载 netease.ndp 将文件放入 Navidrome 根目录下的 plugins 插件文件夹里<br>并在官方网页里开启插件：
+## 🚀 从 Releases 下载 netease.ndp 将文件放入 Navidrome 根目录下的 plugins 插件文件夹里，并在官方网页里开启插件：
 ```text
 /plugins/
 └── mnetease.ndp
