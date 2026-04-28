@@ -38,7 +38,7 @@ tinygo build -opt=2 -scheduler=none -no-debug -o plugin.wasm -target wasip1 -bui
 ```text
 zip netease.ndp plugin.wasm manifest.json
 ```
-## 📖 歌手头像 / 专辑封面 / PDF 保存路径格式
+## 📖 歌手头像 / 专辑封面 / 歌词 / PDF 保存路径格式
 ```text
 /歌手名文件夹/
 └── artist.jpg （歌手头像）
@@ -49,6 +49,8 @@ zip netease.ndp plugin.wasm manifest.json
     └── 曲目1
     └── 曲目2
 ```
+<img width="860" height="724" alt="1" src="https://github.com/user-attachments/assets/11442ba9-396e-4f78-9255-2373aafc161b" />
+
 ## 🛠️ 启用插件示列：
 ```text
 AGENTS = "netease,deezer,lastfm,listenbrainz"
