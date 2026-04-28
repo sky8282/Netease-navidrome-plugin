@@ -1,43 +1,53 @@
 # Netease-navidrome-plugin
-## Navidrome 的增强插件，基于网易云音乐 + Qobuz 数据源，实现自动补全本地音乐库元数据。
-
+## Navidrome 的增强插件，基于网易云音乐 + Qobuz 数据源，实现自动补全本地音乐库元数据
 ✨ 功能特性
-* 🎼 自动下载歌词（.lrc，支持翻译合并）
-* 📖 自动下载 Qobuz 专辑 PDF（Booklet）
 * 🖼️ 自动写入专辑封面 cover.jpg
 * 👤 自动写入歌手头像 artist.jpg
+* 🎼 自动下载歌词（曲目名.lrc，翻译合并）
+* 📖 自动搜索 Qobuz 与下载专辑 PDF 文件（需 token，国内需科学网络）
+
 * 📚 自动补全：
     * 专辑简介（Description）
     * 歌手简介（Biography）
     * 相似歌手
 * ⚡ 内置缓存（KVStore），减少 API 请求
-* ⚠️ 写入歌手头像，专辑封面，歌词 lrc 需开启硬盘写入权限(特别是容器版)
+* ⚠️ 写入歌手头像，专辑封面，歌词 lrc 与 PDF，需开启硬盘写入权限 rw (特别是: 容器 / Nas 版)
 
-## 🧠 工作原理，插件在以下时机触发：
+## 🧠 插件在以下时机触发：
 * ▶️ 播放歌曲（NowPlaying）
 * 📊 Scrobble 上报
 * 📄 请求歌词
 * 📀 打开专辑页
 * 👤 打开歌手页
 
-## 🛠️ 编译：
-1.
-```text
-go mod init netease-plugin&&go mod tidy
-```
-2.
-```text
-tinygo build -opt=2 -scheduler=none -no-debug -o plugin.wasm -target wasip1 -buildmode=c-shared .
-```
-3.
-```text
-zip netease.ndp plugin.wasm manifest.json
-```
-
-## 🚀 将文件放入 Navidrome 插件目录，并在官方网页里开启插件：
+## 🚀 从 Releases 下载 netease.ndp 将文件放入 Navidrome 根目录下的 plugins 插件文件夹里<br>并在官方网页里开启插件：
 ```text
 /plugins/
 └── mnetease.ndp
+```
+## 🛠️ 或者自行编译：
+1. 安装依赖
+```text
+go mod init netease-plugin&&go mod tidy
+```
+2. 编译 wasm
+```text
+tinygo build -opt=2 -scheduler=none -no-debug -o plugin.wasm -target wasip1 -buildmode=c-shared .
+```
+3. 打包成 ndp
+```text
+zip netease.ndp plugin.wasm manifest.json
+```
+## 📖 歌手头像 / 专辑封面 / PDF 保存路径格式
+```text
+/歌手名文件夹/
+└── artist.jpg （歌手头像）
+└── 专辑名文件夹
+    └── cover.jpg （专辑封面）
+    └── 曲目名.lrc （歌词文件）
+    └── 专辑名.pdf （Qobuz_PDF）
+    └── 曲目1
+    └── 曲目2
 ```
 ## 🛠️ 启用插件示列：
 ```text
