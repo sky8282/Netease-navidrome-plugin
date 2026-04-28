@@ -38,6 +38,15 @@ tinygo build -opt=2 -scheduler=none -no-debug -o plugin.wasm -target wasip1 -bui
 ```text
 zip netease.ndp plugin.wasm manifest.json
 ```
+## 🛠️ 启用插件示列：
+```text
+AGENTS = "netease,deezer,lastfm,listenbrainz"
+PLUGINS_ENABLED = true
+PLUGINS_FOLDER = "./plugins"
+PLUGINS_AUTORELOAD = true
+PLUGINS_LOGLEVEL = "INFO"
+PLUGINS_CACHESIZE = "200MB"
+```
 ## 📖 歌手头像 / 专辑封面 / 歌词 / PDF 保存路径格式
 ```text
 /歌手名文件夹/
@@ -51,15 +60,8 @@ zip netease.ndp plugin.wasm manifest.json
 ```
 <img width="860" height="724" alt="1" src="https://github.com/user-attachments/assets/11442ba9-396e-4f78-9255-2373aafc161b" />
 
-## 🛠️ 启用插件示列：
-```text
-AGENTS = "netease,deezer,lastfm,listenbrainz"
-PLUGINS_ENABLED = true
-PLUGINS_FOLDER = "./plugins"
-PLUGINS_AUTORELOAD = true
-PLUGINS_LOGLEVEL = "INFO"
-PLUGINS_CACHESIZE = "200MB"
-```
+## 🛠️ 网页里设置与启用插件：
+
 <img width="1638" height="1718" alt="1" src="https://github.com/user-attachments/assets/65a5d35c-50ee-486b-b4d8-203589cf8e50" />
 <img width="1690" height="1228" alt="2" src="https://github.com/user-attachments/assets/7acc4ef6-b6ff-4111-8b03-dbb882dba9a5" />
 
