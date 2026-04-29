@@ -10,13 +10,18 @@
     * 专辑简介（Description）
     * 歌手简介（Biography）
     * 相似歌手
+* ⚠️ 需开启硬盘写入权限 rw (特别是: 容器 / Nas 版)才能执行以下动作：
+    * 歌手头像               cover.jpg
+    * 专辑封面               artist.jpg
+    * 歌词                  曲目名.lrc
+    * 专辑画册               专辑名.pdf
+    * 专辑元数据             netease_metadata.json
+    * 专辑曲目写入记录列表     netease_processed.txt
 * ⚡ 内置缓存（KVStore），减少 API 请求
-* ⚠️ 写入歌手头像，专辑封面，歌词 lrc 与 PDF，需开启硬盘写入权限 rw (特别是: 容器 / Nas 版)
 
 ## 🧠 插件在以下时机触发：
-* ▶️ 播放歌曲（NowPlaying）
+* ▶️ 播放歌曲（NowPlaying
 * 📊 Scrobble 上报
-* 📄 请求歌词
 * 📀 打开专辑页
 * 👤 打开歌手页
 
@@ -55,6 +60,8 @@ PLUGINS_CACHESIZE = "200MB"
     └── cover.jpg （专辑封面）
     └── 曲目名.lrc （歌词文件）
     └── 专辑名.pdf （Qobuz_PDF）
+    └── netease_metadata.json （专辑元数据文件）
+    └── netease_processed.txt （写入元数据的曲目列表文件）
     └── 曲目1
     └── 曲目2
 ```
