@@ -16,6 +16,7 @@
     * 歌词                  曲目名.lrc
     * 专辑画册               专辑名.pdf
     * 专辑元数据             netease_metadata.json
+    * 曲目写入元数据
     * 专辑曲目写入记录列表     netease_processed.txt
 * ⚡ 内置缓存（KVStore），减少 API 请求
 
