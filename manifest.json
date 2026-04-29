@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "Netease Music Plugin",
   "author": "sky8282",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "下载与写入 歌词、Qobuz-PDF (国内需科学网络)、专辑封面、歌手头像、专辑元数据文件 netease_metadata.json 与元数据写入记录 netease_processed.txt",
   "website": "https://github.com/sky8282/Netease-navidrome-plugin",
   "permissions": {
