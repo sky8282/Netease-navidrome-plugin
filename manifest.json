@@ -3,7 +3,7 @@
   "name": "Netease Music Plugin",
   "author": "sky8282",
   "version": "0.0.1",
-  "description": "下载歌词、Qobuz-PDF (国内需科学网络)、专辑封面及歌手头像",
+  "description": "下载与写入 歌词、Qobuz-PDF (国内需科学网络)、专辑封面、歌手头像、专辑元数据文件 netease_metadata.json 与元数据写入记录 netease_processed.txt",
   "website": "https://github.com/sky8282/Netease-navidrome-plugin",
   "permissions": {
     "users": {
@@ -38,7 +38,7 @@
         "enable_debug_log": {
           "type": "boolean",
           "title": "开启详细 Debug 日志",
-          "default": false
+          "default": true
         },
         "enable_write_lyrics": {
           "type": "boolean",
@@ -47,7 +47,7 @@
         },
         "enable_write_pdf": {
           "type": "boolean",
-          "title": "写入画册 (.pdf)",
+          "title": "写入 PDF (.pdf)",
           "default": true
         },
         "enable_write_cover_image": {
@@ -60,6 +60,11 @@
           "title": "写入歌手头像 (artist.jpg)",
           "default": true
         },
+        "enable_write_metadata": {
+          "type": "boolean",
+          "title": "写入本地音轨元数据",
+          "default": true
+        },
         "enable_lyrics": {
           "type": "boolean",
           "title": "全局歌词抓取 API (供某些客户端请求)",
@@ -67,7 +72,7 @@
         },
         "enable_qobuz_pdf": {
           "type": "boolean",
-          "title": "Qobuz PDF 获取",
+          "title": "下载 Qobuz PDF",
           "default": true
         },
         "qobuz_auth_tokens": {
@@ -79,6 +84,11 @@
           "type": "string",
           "title": "可自定义网易云支持的图片分辨率",
           "default": "1200"
+        },
+        "cache_days": {
+          "type": "integer",
+          "title": "缓存天数 (默认 180 天)",
+          "default": 180
         }
       }
     },
@@ -90,10 +100,12 @@
         { "type": "Control", "scope": "#/properties/enable_write_pdf" },
         { "type": "Control", "scope": "#/properties/enable_write_cover_image" },
         { "type": "Control", "scope": "#/properties/enable_write_artist_image" },
+        { "type": "Control", "scope": "#/properties/enable_write_metadata" },
         { "type": "Control", "scope": "#/properties/enable_lyrics" },
         { "type": "Control", "scope": "#/properties/enable_qobuz_pdf" },
         { "type": "Control", "scope": "#/properties/qobuz_auth_tokens" },
-        { "type": "Control", "scope": "#/properties/image_resolution" }
+        { "type": "Control", "scope": "#/properties/image_resolution" },
+        { "type": "Control", "scope": "#/properties/cache_days" }
       ]
     }
   }
