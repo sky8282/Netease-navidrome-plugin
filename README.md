@@ -29,18 +29,18 @@
 ## 🚀 从 Releases 下载 netease.ndp 将文件放入 Navidrome 根目录下的 plugins 插件文件夹里，并在官方网页里开启插件：
 ```text
 /plugins/
-└── mnetease.ndp
+└── netease.ndp
 ```
 ## 🛠️ 或者自行编译：
 1. 安装依赖
 ```text
 go mod init netease-plugin&&go mod tidy
 ```
-2. 编译 wasm
+2. 编译 wasm 如报警自行安装所需的工具:
 ```text
 tinygo build -opt=2 -scheduler=none -no-debug -o plugin.wasm -target wasip1 -buildmode=c-shared .
 ```
-3. 打包成 ndp
+3. 打包成 ndp:
 ```text
 zip netease.ndp plugin.wasm manifest.json
 ```
@@ -53,7 +53,7 @@ PLUGINS_AUTORELOAD = true
 PLUGINS_LOGLEVEL = "INFO"
 PLUGINS_CACHESIZE = "200MB"
 ```
-## 📖 歌手头像 / 专辑封面 / 歌词 / PDF 保存路径格式
+## 📖 歌手头像 / 专辑封面 / 歌词 / PDF 保存路径格式:
 ```text
 /歌手名文件夹/
 └── artist.jpg （歌手头像）
@@ -70,8 +70,10 @@ PLUGINS_CACHESIZE = "200MB"
 
 ## 🛠️ 网页里设置与启用插件：
 
-<img width="1638" height="1718" alt="1" src="https://github.com/user-attachments/assets/65a5d35c-50ee-486b-b4d8-203589cf8e50" />
-<img width="1690" height="1228" alt="2" src="https://github.com/user-attachments/assets/7acc4ef6-b6ff-4111-8b03-dbb882dba9a5" />
+<img width="1628" height="1808" alt="1" src="https://github.com/user-attachments/assets/1d4adfe6-c0a6-4269-9706-04d87abde645" />
+<img width="1620" height="1278" alt="2" src="https://github.com/user-attachments/assets/c36c9dfb-eb3b-4034-988a-15122ab1a94b" />
+
+
 
 
 
