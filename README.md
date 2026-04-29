@@ -65,7 +65,7 @@ PLUGINS_CACHESIZE = "200MB"
     └── 曲目1
     └── 曲目2
 ```
-<img width="860" height="724" alt="1" src="https://github.com/user-attachments/assets/11442ba9-396e-4f78-9255-2373aafc161b" />
+<img width="930" height="842" alt="1" src="https://github.com/user-attachments/assets/f8a730c5-736c-4d49-8198-2eef5bb5271c" />
 
 ## 🛠️ 网页里设置与启用插件：
 
