@@ -72,7 +72,7 @@ PLUGINS_CACHESIZE = "200MB"
 
 ## 🛠️ 网页里设置与启用插件：
 
-<img width="1804" height="1802" alt="1" src="https://github.com/user-attachments/assets/e2439d3a-1681-4036-8437-66c157bd1a21" />
+<img width="1794" height="1858" alt="1" src="https://github.com/user-attachments/assets/ac4251d3-726f-4cf5-9a41-9a88001c6aa5" />
 <img width="1796" height="1570" alt="2" src="https://github.com/user-attachments/assets/a713db0c-d028-4b91-af90-5587fe72edb4" />
 
 
