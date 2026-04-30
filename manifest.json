@@ -2,15 +2,15 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "Netease Music Plugin",
   "author": "sky8282",
-  "version": "0.0.2",
-  "description": "下载与写入 歌词、Qobuz-PDF (国内需科学网络)、专辑封面、歌手头像、专辑元数据文件 netease_metadata.json 与元数据写入记录 netease_processed.txt",
+  "version": "0.0.3",
+  "description": "下载与写入 歌词、专辑封面、歌手头像、本地、Qobuz 的 PDF (国内需科学网络)、专辑元数据文件、元数据写入记录",
   "website": "https://github.com/sky8282/Netease-navidrome-plugin",
   "permissions": {
     "users": {
       "reason": "开启写入本地权限，否则插件无法启动"
     },
     "http": {
-      "reason": "向网易云和 Qobuz 请求元数据与媒体文件",
+      "reason": "向 网易云 和 Qobuz 请求元数据与媒体文件",
       "requiredHosts": [
         "music.163.com",
         "interface3.music.163.com",
@@ -42,42 +42,47 @@
         },
         "enable_write_lyrics": {
           "type": "boolean",
-          "title": "写入歌词 (.lrc)",
+          "title": "写入本地歌词文件 (.lrc)",
           "default": true
         },
         "enable_write_pdf": {
           "type": "boolean",
-          "title": "写入 PDF (.pdf)",
+          "title": "写入本地 PDF 文件 (.pdf)",
           "default": true
         },
         "enable_write_cover_image": {
           "type": "boolean",
-          "title": "写入专辑封面 (cover.jpg)",
+          "title": "写入本地专辑封面文件 (cover.jpg)",
           "default": true
         },
         "enable_write_artist_image": {
           "type": "boolean",
-          "title": "写入歌手头像 (artist.jpg)",
+          "title": "写入本地歌手头像文件 (artist.jpg)",
           "default": true
         },
         "enable_write_metadata": {
           "type": "boolean",
-          "title": "写入本地音轨元数据",
+          "title": "增量写入本地音轨元数据",
           "default": true
         },
         "enable_lyrics": {
           "type": "boolean",
-          "title": "全局歌词抓取 API (供某些客户端请求)",
+          "title": "全局歌词抓取 API (供某些客户端的请求)",
           "default": true
+        },
+        "netease_cookie": {
+          "type": "string",
+          "title": "网易云 MUSIC_U Cookie",
+          "default": ""
         },
         "enable_qobuz_pdf": {
           "type": "boolean",
-          "title": "下载 Qobuz PDF",
+          "title": "下载 Qobuz PDF (需 🇫🇷 法国区)",
           "default": true
         },
         "qobuz_auth_tokens": {
           "type": "string",
-          "title": "Qobuz Auth Tokens",
+          "title": "🇫🇷 法国区 Qobuz Auth Tokens",
           "default": "dzDadAiP1ePUy3x1CIEbJ-VKcxQFHcB6f3eRlNSrOjPrwwxFiYckt0l5o7pevFMiAmGqbIroofkofYvovZlD0g"
         },
         "image_resolution": {
@@ -102,6 +107,7 @@
         { "type": "Control", "scope": "#/properties/enable_write_artist_image" },
         { "type": "Control", "scope": "#/properties/enable_write_metadata" },
         { "type": "Control", "scope": "#/properties/enable_lyrics" },
+        { "type": "Control", "scope": "#/properties/netease_cookie" },
         { "type": "Control", "scope": "#/properties/enable_qobuz_pdf" },
         { "type": "Control", "scope": "#/properties/qobuz_auth_tokens" },
         { "type": "Control", "scope": "#/properties/image_resolution" },
