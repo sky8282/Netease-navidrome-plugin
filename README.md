@@ -1,29 +1,30 @@
 # Netease-navidrome-plugin
+英文曲目多的建议使用 Qobuz 插件：https://github.com/sky8282/Qobuz-navidrome-plugin
 ## Navidrome 的增强插件，基于网易云音乐 + Qobuz 数据源，实现自动补全本地音乐库元数据
 ✨ 功能特性
-* 🖼️ 自动写入专辑封面 cover.jpg
-* 👤 自动写入歌手头像 artist.jpg
-* 🎼 自动下载歌词（曲目名.lrc，翻译合并）
+* 🖼️ 自动写入专辑封面（ cover.jpg ）
+* 👤 自动写入歌手头像（ artist.jpg ）
+* 🎼 自动下载歌词（ 曲目名.lrc，翻译合并 ）
 * 📖 自动搜索 Qobuz 与下载专辑 PDF 文件（需 token，国内需科学网络）
 
 * 📚 自动补全：
-    * 专辑简介（Description）
-    * 歌手简介（Biography）
-    * 相似歌手（需要 MUSIC_U）
+    * 专辑简介（ Description ）
+    * 歌手简介（ Biography ）
+    * 相似歌手（ SimilarArtists，需要 MUSIC_U ）
       * 自行搜索如何获得 MUSIC_U ，格式如下：
-      * (你的 MUSIC_U);os=pc;appver=8.9.75;
-* ⚠️ 需开启硬盘写入权限 rw (特别是: 容器 / Nas 版)才能执行以下动作：
+      * ( 你的 MUSIC_U );os=pc;appver=8.9.75;
+* ⚠️ 需开启硬盘写入权限 rw ( 特别是: 容器 / Nas 版 )才能执行以下动作：
     * 歌手头像               cover.jpg
     * 专辑封面               artist.jpg
     * 歌词                  曲目名.lrc
-    * 专辑画册               专辑名.pdf（需 🇫🇷 法国区 Token）
+    * 专辑画册               专辑名.pdf（ 需 🇫🇷 法国区 Token ）
     * 增量写入本地音轨元数据
     * 专辑元数据             netease_metadata.json
     * 专辑曲目写入记录列表     netease_processed.txt
-* ⚡ 内置缓存（KVStore），减少 API 请求
+* ⚡ 内置缓存（ KVStore ），减少 API 请求
 
 ## 🧠 插件在以下时机触发：
-* ▶️ 播放歌曲（NowPlaying）
+* ▶️ 播放歌曲（ NowPlaying ）
 * 📊 Scrobble 上报
 * 📀 打开专辑页
 * 👤 打开歌手页
