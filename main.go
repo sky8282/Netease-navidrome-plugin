@@ -91,6 +91,33 @@ func debugLog(msg string) {
 	}
 }
 
+func buildNeteaseHeaders(extra map[string]string) map[string]string {
+	headers := map[string]string{"User-Agent": defaultUserAgent}
+	cookieVal := getConfigString("netease_cookie", "")
+	
+	if cookieVal != "" && !strings.Contains(cookieVal, "MUSIC_U=") {
+		cookieVal = "MUSIC_U=" + cookieVal
+	}
+
+	for k, v := range extra {
+		if strings.ToLower(k) == "cookie" {
+			if cookieVal != "" {
+				headers[k] = v + "; " + cookieVal
+			} else {
+				headers[k] = v
+			}
+		} else {
+			headers[k] = v
+		}
+	}
+	
+	if cookieVal != "" && headers["Cookie"] == "" {
+		headers["Cookie"] = cookieVal
+	}
+
+	return headers
+}
+
 type CacheWrapper struct {
 	Timestamp int64           `json:"ts"`
 	Payload   json.RawMessage `json:"payload"`
@@ -280,7 +307,7 @@ func fetchCompleteAlbumData(albumName, artistName string) (AlbumData, error) {
 	}
 
 	apiURL := fmt.Sprintf("https://music.163.com/api/v1/album/%d", albumID)
-	resp, err := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: apiURL, Headers: map[string]string{"User-Agent": defaultUserAgent}})
+	resp, err := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: apiURL, Headers: buildNeteaseHeaders(nil)})
 	if err != nil {
 		return data, err
 	}
@@ -337,7 +364,7 @@ func fetchCompleteAlbumData(albumName, artistName string) (AlbumData, error) {
 	v3resp, err := host.HTTPSend(host.HTTPRequest{
 		Method:  "POST",
 		URL:     "https://music.163.com/api/v3/song/detail",
-		Headers: map[string]string{"User-Agent": defaultUserAgent, "Content-Type": "application/x-www-form-urlencoded"},
+		Headers: buildNeteaseHeaders(map[string]string{"Content-Type": "application/x-www-form-urlencoded"}),
 		Body:    []byte(payload),
 	})
 
@@ -405,7 +432,7 @@ func resolveID(query string, searchType int) (int64, string, error) {
 
 	safeQuery := url.QueryEscape(query)
 	apiURL := fmt.Sprintf("https://music.163.com/api/search/get/web?s=%s&type=%d&offset=0&limit=1", safeQuery, searchType)
-	resp, err := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: apiURL, Headers: map[string]string{"User-Agent": defaultUserAgent, "Referer": "https://music.163.com/"}})
+	resp, err := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: apiURL, Headers: buildNeteaseHeaders(map[string]string{"Referer": "https://music.163.com/"})})
 	if err != nil {
 		return 0, "", err
 	}
@@ -577,7 +604,7 @@ func fetchAndWriteLocalLyrics(title, artist, absolutePath string, knownSongID in
 	resp, err := host.HTTPSend(host.HTTPRequest{
 		Method:  "POST",
 		URL:     apiURL,
-		Headers: map[string]string{"User-Agent": defaultUserAgent, "Referer": "https://music.163.com/", "Content-Type": "application/x-www-form-urlencoded", "Cookie": "os=pc"},
+		Headers: buildNeteaseHeaders(map[string]string{"Referer": "https://music.163.com/", "Content-Type": "application/x-www-form-urlencoded", "Cookie": "os=pc"}),
 		Body:    []byte(payload),
 	})
 	if err != nil {
@@ -960,10 +987,20 @@ func fetchMetadataAndTag(absPath, title, artist, originalAlbum string) {
 
 	finalComment := albumData.Description
 	if albumData.PDFLink != "" {
+		actualURL := albumData.PDFLink
+		if strings.HasPrefix(actualURL, "<a href=\"") {
+			parts := strings.Split(actualURL, "\"")
+			if len(parts) >= 2 {
+				actualURL = parts[1]
+			}
+		}
+		
+		pdfTag := "PDF:" + actualURL
+		
 		if finalComment != "" {
-			finalComment = albumData.PDFLink + " " + albumData.Description
+			finalComment = albumData.Description + "\n\n" + pdfTag
 		} else {
-			finalComment = albumData.PDFLink
+			finalComment = pdfTag
 		}
 	}
 
@@ -973,6 +1010,8 @@ func fetchMetadataAndTag(absPath, title, artist, originalAlbum string) {
 	}
 
 	isSuccess := writeTags(absPath, ext, matchedSong, albumData, year, finalComment, lyricText, picData)
+	
+	
 	if isSuccess {
 		markTrackProcessed(albumDir, fileName)
 	}
@@ -1160,7 +1199,7 @@ func (a *neteaseAgent) GetAlbumInfo(input metadata.AlbumRequest) (*metadata.Albu
 	
 	albumID, _, _ := resolveID(fmt.Sprintf("%s %s", cleanSearchTerm(input.Name), cleanSearchTerm(input.Artist)), 10)
 	if albumID == 0 { return nil, nil }
-	resp, _ := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: fmt.Sprintf("%s/v1/album/%d", neteaseBaseURL, albumID), Headers: map[string]string{"User-Agent": defaultUserAgent}})
+	resp, _ := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: fmt.Sprintf("%s/v1/album/%d", neteaseBaseURL, albumID), Headers: buildNeteaseHeaders(nil)})
 	var detail struct { Album struct { Description string `json:"description"` } `json:"album"` }
 	json.Unmarshal(resp.Body, &detail)
 	
@@ -1176,7 +1215,7 @@ func (a *neteaseAgent) GetAlbumInfo(input metadata.AlbumRequest) (*metadata.Albu
 func (a *neteaseAgent) GetArtistBiography(input metadata.ArtistRequest) (*metadata.ArtistBiographyResponse, error) {
 	artistID, _, _ := resolveID(cleanSearchTerm(input.Name), 100)
 	if artistID == 0 { return nil, nil }
-	resp, _ := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: fmt.Sprintf("%s/v1/artist/%d", neteaseBaseURL, artistID), Headers: map[string]string{"User-Agent": defaultUserAgent}})
+	resp, _ := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: fmt.Sprintf("%s/v1/artist/%d", neteaseBaseURL, artistID), Headers: buildNeteaseHeaders(nil)})
 	var detail struct { Artist struct { BriefDesc string `json:"briefDesc"` } `json:"artist"` }
 	json.Unmarshal(resp.Body, &detail)
 	return &metadata.ArtistBiographyResponse{Biography: strings.ReplaceAll(compactText(detail.Artist.BriefDesc), "\n", "<br>")}, nil
@@ -1205,11 +1244,65 @@ func (a *neteaseAgent) GetAlbumImages(input metadata.AlbumRequest) (*metadata.Al
 func (a *neteaseAgent) GetSimilarArtists(input metadata.SimilarArtistsRequest) (*metadata.SimilarArtistsResponse, error) {
 	artistID, _, _ := resolveID(cleanSearchTerm(input.Name), 100)
 	if artistID == 0 { return nil, nil }
-	resp, _ := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: fmt.Sprintf("https://music.163.com/api/discovery/simiArtist?artistid=%d", artistID), Headers: map[string]string{"User-Agent": defaultUserAgent}})
-	var sr struct { Artists []struct { Name string `json:"name"` } `json:"artists"` }
-	json.Unmarshal(resp.Body, &sr)
+	
+	payload := fmt.Sprintf("artistid=%d", artistID)
+
+	headers := buildNeteaseHeaders(map[string]string{
+		"Referer":      "https://music.163.com/",
+		"Content-Type": "application/x-www-form-urlencoded",
+	})
+	
+	resp, err := host.HTTPSend(host.HTTPRequest{
+		Method:  "POST", 
+		URL:     "https://music.163.com/api/discovery/simiArtist", 
+		Headers: headers,
+		Body:    []byte(payload),
+	})
+	
+	if err != nil {
+		pdk.Log(pdk.LogInfo, fmt.Sprintf("[Netease API] 获取相似艺人请求失败: %v", err))
+		return nil, nil
+	}
+
+	var sr struct {
+		Code    int `json:"code"`
+		Artists []struct {
+			Id        int64  `json:"id"`
+			Name      string `json:"name"`
+			PicUrl    string `json:"picUrl"`
+			Img1v1Url string `json:"img1v1Url"`
+		} `json:"artists"`
+	}
+
+	if err := json.Unmarshal(resp.Body, &sr); err != nil {
+		pdk.Log(pdk.LogInfo, "[Netease API] 相似艺人 JSON 解析失败")
+		return nil, nil
+	}
+
+	if sr.Code != 200 {
+		pdk.Log(pdk.LogInfo, fmt.Sprintf("[Netease API] 相似艺人获取被拦截或无数据, Code: %d", sr.Code))
+		return nil, nil
+	}
+
 	var res []metadata.ArtistRef
-	for _, a := range sr.Artists { res = append(res, metadata.ArtistRef{Name: a.Name}) }
+	for _, art := range sr.Artists {
+		if art.Name != "" {
+			res = append(res, metadata.ArtistRef{
+				ID:   fmt.Sprintf("netease_art_%d", art.Id),
+				Name: art.Name,
+			})
+			
+			pic := art.Img1v1Url
+			if pic == "" || pic == "None" { pic = art.PicUrl }
+			if pic != "" {
+				cacheKey := fmt.Sprintf("id_map:100:%s", strings.ToLower(art.Name))
+				b, _ := json.Marshal(IDCacheData{ID: art.Id, Pic: pic}) 
+				cacheSet(cacheKey, b)
+			}
+		}
+	}
+	
+	pdk.Log(pdk.LogInfo, fmt.Sprintf("[Netease API] 成功获取并映射 %s 的相似艺人: %d 个", input.Name, len(res)))
 	return &metadata.SimilarArtistsResponse{Artists: res}, nil
 }
 
