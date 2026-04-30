@@ -23,7 +23,7 @@
 * ⚡ 内置缓存（KVStore），减少 API 请求
 
 ## 🧠 插件在以下时机触发：
-* ▶️ 播放歌曲（NowPlaying
+* ▶️ 播放歌曲（NowPlaying）
 * 📊 Scrobble 上报
 * 📀 打开专辑页
 * 👤 打开歌手页
