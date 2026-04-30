@@ -9,14 +9,16 @@
 * 📚 自动补全：
     * 专辑简介（Description）
     * 歌手简介（Biography）
-    * 相似歌手
+    * 相似歌手（需要 MUSIC_U）
+      * 自行搜索如何获得 MUSIC_U ，格式如下：
+      * (你的 MUSIC_U);os=pc;appver=8.9.75;
 * ⚠️ 需开启硬盘写入权限 rw (特别是: 容器 / Nas 版)才能执行以下动作：
     * 歌手头像               cover.jpg
     * 专辑封面               artist.jpg
     * 歌词                  曲目名.lrc
-    * 专辑画册               专辑名.pdf
+    * 专辑画册               专辑名.pdf（需 🇫🇷 法国区 Token）
+    * 增量写入本地音轨元数据
     * 专辑元数据             netease_metadata.json
-    * 曲目写入元数据
     * 专辑曲目写入记录列表     netease_processed.txt
 * ⚡ 内置缓存（KVStore），减少 API 请求
 
@@ -70,8 +72,9 @@ PLUGINS_CACHESIZE = "200MB"
 
 ## 🛠️ 网页里设置与启用插件：
 
-<img width="1628" height="1808" alt="1" src="https://github.com/user-attachments/assets/1d4adfe6-c0a6-4269-9706-04d87abde645" />
-<img width="1610" height="1276" alt="2" src="https://github.com/user-attachments/assets/19a3329c-f456-4a93-9994-2c6858608e15" />
+<img width="1804" height="1802" alt="1" src="https://github.com/user-attachments/assets/e2439d3a-1681-4036-8437-66c157bd1a21" />
+<img width="1796" height="1570" alt="2" src="https://github.com/user-attachments/assets/a713db0c-d028-4b91-af90-5587fe72edb4" />
+
 
 
 
