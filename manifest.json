@@ -3,7 +3,7 @@
   "name": "Netease Music Plugin",
   "author": "sky8282",
   "version": "0.0.3",
-  "description": "下载与写入 歌词、专辑封面、歌手头像、本地、Qobuz 的 PDF (国内需科学网络)、专辑元数据文件、元数据写入记录",
+  "description": "下载与写入本地：歌词、专辑封面、歌手头像、Qobuz 的 PDF (国内需科学网络)、专辑元数据文件、元数据写入记录",
   "website": "https://github.com/sky8282/Netease-navidrome-plugin",
   "permissions": {
     "users": {
@@ -62,7 +62,7 @@
         },
         "enable_write_metadata": {
           "type": "boolean",
-          "title": "增量写入本地音轨元数据",
+          "title": "增量写入本地音轨元数据（慎用）",
           "default": true
         },
         "enable_lyrics": {
