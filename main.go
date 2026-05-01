@@ -208,8 +208,20 @@ func fuzzyMatch(s1, s2 string) bool {
 		return true
 	}
 	if len(n1) > 3 && len(n2) > 3 {
-		return strings.Contains(n1, n2) || strings.Contains(n2, n1)
+		if strings.Contains(n1, n2) || strings.Contains(n2, n1) {
+			return true
+		}
 	}
+
+	reAscii := regexp.MustCompile(`[^\x00-\x7F]+`)
+	a1 := reAscii.ReplaceAllString(n1, "")
+	a2 := reAscii.ReplaceAllString(n2, "")
+	if len(a1) > 3 && len(a2) > 3 {
+		if strings.Contains(a1, a2) || strings.Contains(a2, a1) {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -294,14 +306,97 @@ type IDCacheData struct {
 	Pic string `json:"pic"`
 }
 
-func fetchCompleteAlbumData(albumName, artistName string) (AlbumData, error) {
+func fetchCompleteAlbumData(albumName, artistName, albumDir string) (AlbumData, error) {
 	var data AlbumData
 	data.AlbumName = albumName
 
-	albumID, _, err := resolveID(albumName+" "+artistName, 10)
-	if albumID == 0 {
-		albumID, _, err = resolveID(albumName, 10)
+	cleanAlbum := cleanSearchTerm(albumName)
+	cleanArtist := cleanSearchTerm(artistName)
+
+	localTrackCount := 0
+	if albumDir != "" {
+		if entries, err := os.ReadDir(albumDir); err == nil {
+			for _, e := range entries {
+				if !e.IsDir() {
+					ext := strings.ToLower(filepath.Ext(e.Name()))
+					if ext == ".flac" || ext == ".mp3" || ext == ".m4a" || ext == ".alac" || ext == ".aac" {
+						localTrackCount++
+					}
+				}
+			}
+		}
 	}
+
+	var albumID int64
+	safeQuery := url.QueryEscape(cleanAlbum + " " + cleanArtist)
+	searchURL := fmt.Sprintf("https://music.163.com/api/search/get/web?s=%s&type=10&offset=0&limit=20", safeQuery)
+	
+	if resp, err := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: searchURL, Headers: buildNeteaseHeaders(map[string]string{"Referer": "https://music.163.com/"})}); err == nil {
+		var sr searchResponse
+		json.Unmarshal(resp.Body, &sr)
+		
+		if len(sr.Result.Albums) > 0 {
+			bestIdx := -1
+			minDiff := 9999
+			bestSize := -1
+			foundStrictMatch := false
+			
+			targetName := strings.TrimSpace(strings.ToLower(cleanAlbum))
+
+			for i, al := range sr.Result.Albums {
+				apiAlbumName := strings.TrimSpace(strings.ToLower(al.Name))
+				isStrict := (apiAlbumName == targetName)
+
+				if localTrackCount > 0 {
+					diff := al.Size - localTrackCount
+					if diff < 0 { diff = -diff }
+
+					if foundStrictMatch {
+						if isStrict && diff < minDiff {
+							minDiff = diff
+							bestIdx = i
+						}
+					} else {
+						if isStrict {
+							foundStrictMatch = true
+							minDiff = diff
+							bestIdx = i
+						} else if diff < minDiff {
+							minDiff = diff
+							bestIdx = i
+						}
+					}
+				} else {
+					if foundStrictMatch {
+						if isStrict && al.Size > bestSize {
+							bestSize = al.Size
+							bestIdx = i
+						}
+					} else {
+						if isStrict {
+							foundStrictMatch = true
+							bestSize = al.Size
+							bestIdx = i
+						} else if al.Size > bestSize {
+							bestSize = al.Size
+							bestIdx = i
+						}
+					}
+				}
+			}
+			
+			if bestIdx != -1 {
+				albumID = sr.Result.Albums[bestIdx].ID
+			} else {
+				albumID = sr.Result.Albums[0].ID
+			}
+		}
+	}
+
+	if albumID == 0 {
+		albumID, _, _ = resolveID(cleanAlbum, 10)
+	}
+
 	if albumID == 0 {
 		return data, fmt.Errorf("album not found")
 	}
@@ -408,14 +503,16 @@ type searchResponse struct {
 			PublishTime int64 `json:"publishTime"`
 		} `json:"songs"`
 		Artists []struct {
-			ID     int64  `json:"id"`
-			Name   string `json:"name"`
-			PicURL string `json:"picUrl"`
+			ID        int64  `json:"id"`
+			Name      string `json:"name"`
+			PicURL    string `json:"picUrl"`
+			Img1v1Url string `json:"img1v1Url"`
 		} `json:"artists"`
 		Albums []struct {
 			ID     int64  `json:"id"`
 			Name   string `json:"name"`
 			PicURL string `json:"picUrl"`
+			Size   int    `json:"size"`
 		} `json:"albums"`
 	} `json:"result"`
 }
@@ -444,7 +541,12 @@ func resolveID(query string, searchType int) (int64, string, error) {
 	
 	if searchType == 100 && len(sr.Result.Artists) > 0 {
 		foundID = sr.Result.Artists[0].ID
-		foundPic = sr.Result.Artists[0].PicURL
+		foundPic = sr.Result.Artists[0].Img1v1Url
+		
+		if foundPic == "" || foundPic == "None" {
+			foundPic = sr.Result.Artists[0].PicURL
+		}
+		
 	} else if searchType == 10 && len(sr.Result.Albums) > 0 {
 		foundID = sr.Result.Albums[0].ID
 		foundPic = sr.Result.Albums[0].PicURL
@@ -914,7 +1016,7 @@ func triggerAlbumPreload(albumName, artistName string) {
 		pdk.Log(pdk.LogInfo, "[Phase1] 本地 JSON 缓存已存在，跳过网易云 API 请求")
 	} else {
 		pdk.Log(pdk.LogInfo, "[Phase1] 本地无 JSON 缓存，正在拉取网易云 API...")
-		fetchedData, err := fetchCompleteAlbumData(albumName, artistName)
+		fetchedData, err := fetchCompleteAlbumData(albumName, artistName, albumDir)
 		if err == nil && fetchedData.AlbumID > 0 {
 			fetchedData.PDFLink = pdfLink
 			saveLocalAlbumData(albumDir, fetchedData)
@@ -963,7 +1065,7 @@ func fetchMetadataAndTag(absPath, title, artist, originalAlbum string) {
 	if localData, found := getLocalAlbumData(albumDir); found {
 		albumData = localData
 	} else {
-		albumData, _ = fetchCompleteAlbumData(originalAlbum, artist)
+		albumData, _ = fetchCompleteAlbumData(originalAlbum, artist, albumDir)
 		albumData.PDFLink = fetchQobuzPDFLink(originalAlbum, artist)
 		if albumData.AlbumID > 0 {
 			saveLocalAlbumData(albumDir, albumData)
@@ -971,6 +1073,13 @@ func fetchMetadataAndTag(absPath, title, artist, originalAlbum string) {
 	}
 
 	if albumData.AlbumID == 0 { return }
+
+	if getConfigBool("enable_write_cover_image", true) && albumData.PicURL != "" {
+		downloadImage(albumData.PicURL, filepath.Join(albumDir, "cover.jpg"))
+	}
+	if getConfigBool("enable_write_artist_image", true) && albumData.ArtistPicURL != "" {
+		downloadImage(albumData.ArtistPicURL, filepath.Join(filepath.Dir(albumDir), "artist.jpg"))
+	}
 
 	matchedSong, foundSong := matchLocalFileToNeteaseSong(fileName, albumData.Songs)
 	if !foundSong {
@@ -1011,7 +1120,6 @@ func fetchMetadataAndTag(absPath, title, artist, originalAlbum string) {
 
 	isSuccess := writeTags(absPath, ext, matchedSong, albumData, year, finalComment, lyricText, picData)
 	
-	
 	if isSuccess {
 		markTrackProcessed(albumDir, fileName)
 	}
@@ -1041,13 +1149,28 @@ func guessAlbumPath(albumName, artistName string) string {
 		root := lib.MountPoint
 		if root == "" { root = lib.Path }
 		if root == "" { continue }
+		
 		guess1 := filepath.Join(root, artistName, albumName)
 		if stat, err := os.Stat(guess1); err == nil && stat.IsDir() { return guess1 }
+		
 		guess2 := filepath.Join(root, albumName)
 		if stat, err := os.Stat(guess2); err == nil && stat.IsDir() { return guess2 }
+
+		artistGuess := filepath.Join(root, artistName)
+		if stat, err := os.Stat(artistGuess); err == nil && stat.IsDir() {
+			if subEntries, err := os.ReadDir(artistGuess); err == nil {
+				for _, sub := range subEntries {
+					if sub.IsDir() && (fuzzyMatch(albumName, sub.Name()) || strings.Contains(strings.ToLower(sub.Name()), strings.ToLower(albumName))) {
+						return filepath.Join(artistGuess, sub.Name())
+					}
+				}
+			}
+		}
+
 		if entries, err := os.ReadDir(root); err == nil {
 			for _, entry := range entries {
 				if !entry.IsDir() { continue }
+				
 				isArtistDir := fuzzyMatch(artistName, entry.Name()) || strings.Contains(strings.ToLower(entry.Name()), strings.ToLower(artistName))
 				if isArtistDir {
 					artistDir := filepath.Join(root, entry.Name())
@@ -1059,6 +1182,7 @@ func guessAlbumPath(albumName, artistName string) string {
 						}
 					}
 				}
+				
 				if fuzzyMatch(albumName, entry.Name()) || strings.Contains(strings.ToLower(entry.Name()), strings.ToLower(albumName)) {
 					return filepath.Join(root, entry.Name())
 				}
@@ -1067,6 +1191,7 @@ func guessAlbumPath(albumName, artistName string) string {
 	}
 	return ""
 }
+
 
 func guessArtistPath(artistName string) string {
 	libraries, err := host.LibraryGetAllLibraries()
@@ -1223,6 +1348,14 @@ func (a *neteaseAgent) GetArtistBiography(input metadata.ArtistRequest) (*metada
 
 func (a *neteaseAgent) GetArtistImages(input metadata.ArtistRequest) (*metadata.ArtistImagesResponse, error) {
 	_, pic, _ := resolveID(cleanSearchTerm(input.Name), 100)
+	
+	if pic != "" && getConfigBool("enable_write_artist_image", true) {
+		artistDir := guessArtistPath(input.Name)
+		if artistDir != "" {
+			downloadImage(pic, filepath.Join(artistDir, "artist.jpg"))
+		}
+	}
+
 	if pic == "" { return nil, nil }
 	res := getConfigString("image_resolution", "1200")
 	full := fmt.Sprintf("%s?param=%sy%s", strings.Replace(pic, "http://", "https://", 1), res, res)
@@ -1232,6 +1365,8 @@ func (a *neteaseAgent) GetArtistImages(input metadata.ArtistRequest) (*metadata.
 }
 
 func (a *neteaseAgent) GetAlbumImages(input metadata.AlbumRequest) (*metadata.AlbumImagesResponse, error) {
+	triggerAlbumPreload(input.Name, input.Artist)
+
 	_, pic, _ := resolveID(fmt.Sprintf("%s %s", cleanSearchTerm(input.Name), cleanSearchTerm(input.Artist)), 10)
 	if pic == "" { return nil, nil }
 	res := getConfigString("image_resolution", "1200")
