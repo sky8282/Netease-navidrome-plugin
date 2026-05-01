@@ -1317,7 +1317,7 @@ func (a *neteaseAgent) GetAlbumInfo(input metadata.AlbumRequest) (*metadata.Albu
 	if localData, found := getLocalAlbumData(albumDir); found {
 		desc := strings.ReplaceAll(localData.Description, "\n", "<br>")
 		if localData.PDFLink != "" {
-			return &metadata.AlbumInfoResponse{Description: localData.PDFLink + " " + desc}, nil
+			return &metadata.AlbumInfoResponse{Description: localData.PDFLink + "<br>" + desc}, nil
 		}
 		return &metadata.AlbumInfoResponse{Description: desc}, nil
 	}
@@ -1328,10 +1328,10 @@ func (a *neteaseAgent) GetAlbumInfo(input metadata.AlbumRequest) (*metadata.Albu
 	var detail struct { Album struct { Description string `json:"description"` } `json:"album"` }
 	json.Unmarshal(resp.Body, &detail)
 	
-	desc := strings.ReplaceAll(compactText(detail.Album.Description), "\n", "<br>")
+	desc := strings.ReplaceAll(compactText(detail.Album.Description), "\n", "")
 	pdfLink := fetchQobuzPDFLink(input.Name, input.Artist)
 	if pdfLink != "" {
-		if desc != "" { return &metadata.AlbumInfoResponse{Description: pdfLink + " " + desc}, nil }
+		if desc != "" { return &metadata.AlbumInfoResponse{Description: pdfLink + "" + desc}, nil }
 		return &metadata.AlbumInfoResponse{Description: pdfLink}, nil
 	}
 	return &metadata.AlbumInfoResponse{Description: desc}, nil
