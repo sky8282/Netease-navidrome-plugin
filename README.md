@@ -6,6 +6,7 @@
 * 👤 自动写入歌手头像（ artist.jpg ）
 * 🎼 自动下载歌词（ 曲目名.lrc，翻译合并 ）
 * 📖 自动搜索 Qobuz 与下载专辑 PDF 文件（需 token，国内需科学网络）
+* 🎼 古典乐 作品 写入曲目元数据供定制版 feishin 读取
 
 * 📚 自动补全：
     * 专辑简介（ Description ）
@@ -13,7 +14,7 @@
     * 相似歌手（ SimilarArtists，需要 MUSIC_U ）
       * 自行搜索如何获得 MUSIC_U ，格式如下：
       * ( 你的 MUSIC_U );os=pc;appver=8.9.75;
-* ⚠️ 需开启硬盘写入权限 rw ( 特别是: 容器 / Nas 版 )才能执行以下动作：
+* ⚠️ 需开启硬盘写入权限 rw ( 特别是: 容器 / Nas 版的 navidrome 启动配置里修改 )才能执行以下动作：
     * 歌手头像               cover.jpg
     * 专辑封面               artist.jpg
     * 歌词                  曲目名.lrc
@@ -70,6 +71,10 @@ PLUGINS_CACHESIZE = "200MB"
     └── 曲目2
 ```
 <img width="930" height="842" alt="1" src="https://github.com/user-attachments/assets/f8a730c5-736c-4d49-8198-2eef5bb5271c" />
+
+##
+
+<img width="2354" height="2260" alt="1" src="https://github.com/user-attachments/assets/b525e171-e912-43b0-a7fd-c95bcada91d5" />
 
 ## 🛠️ 网页里设置与启用插件：
 
