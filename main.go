@@ -49,9 +49,9 @@ func init() {
 	lyrics.Register(agent)
 	scrobbler.Register(agent)
 
-	pdk.Log(pdk.LogInfo, "===============================================")
-	pdk.Log(pdk.LogInfo, "💥 Netease Plugin Started (On-Demand & JSON Cache Mode)")
-	pdk.Log(pdk.LogInfo, "===============================================")
+	//pdk.Log(pdk.LogInfo, "===============================================")
+	pdk.Log(pdk.LogInfo, "💥 Netease Plugin Started 💥 ")
+	//pdk.Log(pdk.LogInfo, "===============================================")
 }
 
 func main() {}
@@ -84,6 +84,8 @@ func getConfigInt(key string, defaultVal int) int {
 	}
 	return i
 }
+
+func getNavidromeUser() string { return getConfigString("navidrome_user", "admin") }
 
 func debugLog(msg string) {
 	if getConfigBool("enable_debug_log", true) {
@@ -1142,26 +1144,100 @@ func matchLocalFileToNeteaseSong(filename string, songs []SongData) (SongData, b
 	return SongData{}, false
 }
 
+func cleanArtistName(artist string) string {
+	if artist == "[Unknown Artist]" || artist == "Unknown Artist" || artist == "Unknown" { return "" }
+	return artist
+}
+
+type subsonicAlbumResponse struct {
+	SubsonicResponse struct {
+		Album struct {
+			Song []struct {
+				Path        string `json:"path"`
+				Artist      string `json:"artist"`
+				AlbumArtist string `json:"albumArtist"`
+				Suffix      string `json:"suffix"`
+				Size        int64  `json:"size"`
+			} `json:"song"`
+		} `json:"album"`
+	} `json:"subsonic-response"`
+}
+
+func getAlbumDirAndArtistFromID(albumID string) (string, string) {
+	if albumID == "" { return "", "" }
+	jsonStr, err := host.SubsonicAPICall("getAlbum?id=" + albumID + "&u=" + getNavidromeUser() + "&f=json&v=1.16.0")
+	if err != nil { return "", "" }
+	var resp subsonicAlbumResponse
+	json.Unmarshal([]byte(jsonStr), &resp)
+	
+	if len(resp.SubsonicResponse.Album.Song) > 0 {
+		song := resp.SubsonicResponse.Album.Song[0]
+		art := cleanArtistName(song.AlbumArtist)
+		if art == "" { art = cleanArtistName(song.Artist) }
+		
+		abs, _ := resolveAbsolutePath(song.Path, song.Suffix, song.Size)
+		if abs == "" { abs = resolveFromRelativePath(song.Path) }
+		
+		if abs != "" {
+			return filepath.Dir(abs), art
+		}
+	}
+	return "", ""
+}
+
+func findAlbumDirViaSubsonicAPI(albumName, artistName string) (string, string) {
+	if albumName == "" { return "", "" }
+	query := url.QueryEscape(albumName)
+	jsonStr, err := host.SubsonicAPICall(fmt.Sprintf("search3?query=%s&albumCount=10&u=%s&f=json&v=1.16.0", query, getNavidromeUser()))
+	if err != nil { return "", "" }
+
+	var resp struct {
+		SubsonicResponse struct {
+			SearchResult3 struct {
+				Album []struct {
+					ID     string `json:"id"`
+					Name   string `json:"name"`
+				} `json:"album"`
+			} `json:"searchResult3"`
+		} `json:"subsonic-response"`
+	}
+	json.Unmarshal([]byte(jsonStr), &resp)
+
+	for _, alb := range resp.SubsonicResponse.SearchResult3.Album {
+		if fuzzyMatch(alb.Name, albumName) {
+			dir, art := getAlbumDirAndArtistFromID(alb.ID)
+			if dir != "" { return dir, art }
+		}
+	}
+	return "", ""
+}
+
 func guessAlbumPath(albumName, artistName string) string {
+	apiDir, _ := findAlbumDirViaSubsonicAPI(albumName, artistName)
+	if apiDir != "" { return apiDir }
+
 	libraries, err := host.LibraryGetAllLibraries()
 	if err != nil { return "" }
+	
+	cleanAlbum := cleanSearchTerm(albumName)
+	cleanArtist := cleanSearchTerm(artistName)
+	
 	for _, lib := range libraries {
 		root := lib.MountPoint
 		if root == "" { root = lib.Path }
 		if root == "" { continue }
 		
-		guess1 := filepath.Join(root, artistName, albumName)
-		if stat, err := os.Stat(guess1); err == nil && stat.IsDir() { return guess1 }
-		
-		guess2 := filepath.Join(root, albumName)
-		if stat, err := os.Stat(guess2); err == nil && stat.IsDir() { return guess2 }
-
-		artistGuess := filepath.Join(root, artistName)
-		if stat, err := os.Stat(artistGuess); err == nil && stat.IsDir() {
-			if subEntries, err := os.ReadDir(artistGuess); err == nil {
-				for _, sub := range subEntries {
-					if sub.IsDir() && (fuzzyMatch(albumName, sub.Name()) || strings.Contains(strings.ToLower(sub.Name()), strings.ToLower(albumName))) {
-						return filepath.Join(artistGuess, sub.Name())
+		if cleanArtist != "" {
+			guess1 := filepath.Join(root, cleanArtist, albumName)
+			if stat, err := os.Stat(guess1); err == nil && stat.IsDir() { return guess1 }
+			
+			artistGuess := filepath.Join(root, cleanArtist)
+			if stat, err := os.Stat(artistGuess); err == nil && stat.IsDir() {
+				if subEntries, err := os.ReadDir(artistGuess); err == nil {
+					for _, sub := range subEntries {
+						if sub.IsDir() && (fuzzyMatch(cleanAlbum, sub.Name()) || strings.Contains(strings.ToLower(sub.Name()), strings.ToLower(cleanAlbum))) {
+							return filepath.Join(artistGuess, sub.Name())
+						}
 					}
 				}
 			}
@@ -1171,19 +1247,19 @@ func guessAlbumPath(albumName, artistName string) string {
 			for _, entry := range entries {
 				if !entry.IsDir() { continue }
 				
-				isArtistDir := fuzzyMatch(artistName, entry.Name()) || strings.Contains(strings.ToLower(entry.Name()), strings.ToLower(artistName))
+				isArtistDir := fuzzyMatch(cleanArtist, entry.Name()) || strings.Contains(strings.ToLower(entry.Name()), strings.ToLower(cleanArtist))
 				if isArtistDir {
 					artistDir := filepath.Join(root, entry.Name())
 					if subEntries, err := os.ReadDir(artistDir); err == nil {
 						for _, sub := range subEntries {
-							if sub.IsDir() && (fuzzyMatch(albumName, sub.Name()) || strings.Contains(strings.ToLower(sub.Name()), strings.ToLower(albumName))) {
+							if sub.IsDir() && (fuzzyMatch(cleanAlbum, sub.Name()) || strings.Contains(strings.ToLower(sub.Name()), strings.ToLower(cleanAlbum))) {
 								return filepath.Join(artistDir, sub.Name())
 							}
 						}
 					}
 				}
 				
-				if fuzzyMatch(albumName, entry.Name()) || strings.Contains(strings.ToLower(entry.Name()), strings.ToLower(albumName)) {
+				if fuzzyMatch(cleanAlbum, entry.Name()) || strings.Contains(strings.ToLower(entry.Name()), strings.ToLower(cleanAlbum)) {
 					return filepath.Join(root, entry.Name())
 				}
 			}
@@ -1192,10 +1268,10 @@ func guessAlbumPath(albumName, artistName string) string {
 	return ""
 }
 
-
 func guessArtistPath(artistName string) string {
 	libraries, err := host.LibraryGetAllLibraries()
 	if err != nil { return "" }
+	cleanArtist := cleanSearchTerm(artistName)
 	for _, lib := range libraries {
 		root := lib.MountPoint
 		if root == "" { root = lib.Path }
@@ -1204,7 +1280,7 @@ func guessArtistPath(artistName string) string {
 		if stat, err := os.Stat(guess); err == nil && stat.IsDir() { return guess }
 		if entries, err := os.ReadDir(root); err == nil {
 			for _, entry := range entries {
-				if entry.IsDir() && (fuzzyMatch(artistName, entry.Name()) || strings.Contains(strings.ToLower(entry.Name()), strings.ToLower(artistName))) {
+				if entry.IsDir() && (fuzzyMatch(cleanArtist, entry.Name()) || strings.Contains(strings.ToLower(entry.Name()), strings.ToLower(cleanArtist))) {
 					return filepath.Join(root, entry.Name())
 				}
 			}
@@ -1219,6 +1295,8 @@ type subsonicSongResponse struct {
 			Path   string `json:"path"`
 			Suffix string `json:"suffix"`
 			Size   int64  `json:"size"`
+			Artist      string `json:"artist"`
+			AlbumArtist string `json:"albumArtist"`
 		} `json:"song"`
 	} `json:"subsonic-response"`
 }
@@ -1239,15 +1317,7 @@ func findAudioBySize(root, suffix string, size int64) (string, error) {
 	return found, nil
 }
 
-func resolveAbsolutePath(username, trackID string) (string, error) {
-	jsonStr, err := host.SubsonicAPICall("getSong?id=" + trackID + "&u=" + username + "&f=json")
-	if err != nil { return "", err }
-	var resp subsonicSongResponse
-	json.Unmarshal([]byte(jsonStr), &resp)
-	relPath := resp.SubsonicResponse.Song.Path
-	suffix := resp.SubsonicResponse.Song.Suffix
-	size := resp.SubsonicResponse.Song.Size
-	if relPath == "" { return "", fmt.Errorf("relpath failed") }
+func resolveAbsolutePath(relPath, suffix string, size int64) (string, error) {
 	libraries, _ := host.LibraryGetAllLibraries()
 	for _, lib := range libraries {
 		root := lib.MountPoint
@@ -1279,33 +1349,70 @@ func resolveFromRelativePath(relPath string) string {
 	return relPath
 }
 
+func getSongDetailsFromSubsonic(username, trackID string) (*subsonicSongResponse, error) {
+	if username == "" { username = getNavidromeUser() }
+	jsonStr, err := host.SubsonicAPICall("getSong?id=" + trackID + "&u=" + username + "&f=json&v=1.16.0")
+	if err != nil { return nil, err }
+	var resp subsonicSongResponse
+	json.Unmarshal([]byte(jsonStr), &resp)
+	if resp.SubsonicResponse.Song.Path == "" { return nil, fmt.Errorf("relpath failed") }
+	return &resp, nil
+}
+
+func getTrackArtistAndDir(username, trackID, trackArtist, fallbackPath string) (string, string) {
+	var abs string
+	finalArtist := ""
+
+	if detail, err := getSongDetailsFromSubsonic(username, trackID); err == nil {
+		abs, _ = resolveAbsolutePath(detail.SubsonicResponse.Song.Path, detail.SubsonicResponse.Song.Suffix, detail.SubsonicResponse.Song.Size)
+
+		if aArtist := cleanArtistName(detail.SubsonicResponse.Song.AlbumArtist); aArtist != "" {
+			finalArtist = aArtist
+		} else if art := cleanArtistName(detail.SubsonicResponse.Song.Artist); art != "" {
+			finalArtist = art
+		}
+	}
+
+	if abs == "" { abs = resolveFromRelativePath(fallbackPath) }
+	if finalArtist == "" { finalArtist = cleanArtistName(trackArtist) }
+
+	if finalArtist == "" && abs != "" {
+		parts := strings.Split(filepath.ToSlash(abs), "/")
+		if len(parts) >= 3 {
+			guessedArtist := parts[len(parts)-3]
+			if guessedArtist != "" && !strings.Contains(guessedArtist, "Music Library") && guessedArtist != "." {
+				finalArtist = guessedArtist
+			}
+		}
+	}
+	return finalArtist, abs
+}
+
 func (a *neteaseAgent) IsAuthorized(_ scrobbler.IsAuthorizedRequest) (bool, error) { return true, nil }
 
 func (a *neteaseAgent) NowPlaying(req scrobbler.NowPlayingRequest) error {
-	abs, _ := resolveAbsolutePath(req.Username, req.Track.ID)
-	if abs == "" { abs = resolveFromRelativePath(req.Track.Path) }
+	finalArtist, abs := getTrackArtistAndDir(req.Username, req.Track.ID, req.Track.Artist, req.Track.Path)
 	if abs != "" {
-		fetchMetadataAndTag(abs, req.Track.Title, req.Track.Artist, req.Track.Album)
+		fetchMetadataAndTag(abs, req.Track.Title, finalArtist, req.Track.Album)
 	}
 	return nil
 }
 
 func (a *neteaseAgent) Scrobble(req scrobbler.ScrobbleRequest) error {
-	abs, _ := resolveAbsolutePath(req.Username, req.Track.ID)
-	if abs == "" { abs = resolveFromRelativePath(req.Track.Path) }
+	finalArtist, abs := getTrackArtistAndDir(req.Username, req.Track.ID, req.Track.Artist, req.Track.Path)
 	if abs != "" {
-		fetchMetadataAndTag(abs, req.Track.Title, req.Track.Artist, req.Track.Album)
+		fetchMetadataAndTag(abs, req.Track.Title, finalArtist, req.Track.Album)
 	}
 	return nil
 }
 
 func (a *neteaseAgent) GetLyrics(input lyrics.GetLyricsRequest) (lyrics.GetLyricsResponse, error) {
 	if !getConfigBool("enable_lyrics", true) { return lyrics.GetLyricsResponse{}, nil }
-	abs := resolveFromRelativePath(input.Track.Path)
+	finalArtist, abs := getTrackArtistAndDir(getNavidromeUser(), input.Track.ID, input.Track.Artist, input.Track.Path)
 	if abs != "" {
-		fetchMetadataAndTag(abs, input.Track.Title, input.Track.Artist, input.Track.Album)
+		fetchMetadataAndTag(abs, input.Track.Title, finalArtist, input.Track.Album)
 	}
-	lyricText := fetchAndWriteLocalLyrics(input.Track.Title, input.Track.Artist, abs, 0)
+	lyricText := fetchAndWriteLocalLyrics(input.Track.Title, finalArtist, abs, 0)
 	if lyricText == "" { return lyrics.GetLyricsResponse{}, nil }
 	return lyrics.GetLyricsResponse{Lyrics: []lyrics.LyricsText{{Text: lyricText}}}, nil
 }
