@@ -50,7 +50,7 @@ func init() {
 	scrobbler.Register(agent)
 
 	//pdk.Log(pdk.LogInfo, "===============================================")
-	pdk.Log(pdk.LogInfo, "💥 Netease Plugin Started 💥 ")
+	//pdk.Log(pdk.LogInfo, "🔥 Netease Plugin Started")
 	//pdk.Log(pdk.LogInfo, "===============================================")
 }
 
@@ -89,7 +89,7 @@ func getNavidromeUser() string { return getConfigString("navidrome_user", "admin
 
 func debugLog(msg string) {
 	if getConfigBool("enable_debug_log", true) {
-		pdk.Log(pdk.LogInfo, "[Netease Debug] "+msg)
+		pdk.Log(pdk.LogInfo, "ℹ️ [Netease Debug] "+msg)
 	}
 }
 
@@ -193,6 +193,18 @@ func compactText(text string) string {
 	return strings.TrimSpace(text)
 }
 
+func cleanSongTitle(title string) string {
+	reTrack := regexp.MustCompile(`^\s*\d+\s*[\.-]?\s*`)
+	title = reTrack.ReplaceAllString(title, "")
+	reBrackets := regexp.MustCompile(`(?i)[\[\(\{].*?(live|remix|version|edit|concert|mix|acoustic|instrumental).*?[\]\)\}]`)
+	title = reBrackets.ReplaceAllString(title, "")
+	reDash := regexp.MustCompile(`(?i)\s*[-—]\s*.*?(live|remix|version|edit|concert|mix|acoustic|instrumental).*`)
+	title = reDash.ReplaceAllString(title, "")
+	reEmptyBrackets := regexp.MustCompile(`[\[\(\{]\s*[\]\)\}]\s*$`)
+	title = reEmptyBrackets.ReplaceAllString(title, "")
+	return strings.TrimSpace(title)
+}
+
 func cleanSearchTerm(text string) string {
 	re := regexp.MustCompile(`[\[\(].*?[\]\)]`)
 	text = re.ReplaceAllString(text, " ")
@@ -235,6 +247,8 @@ func cleanLyric(text string) string {
 	text = reBy.ReplaceAllString(text, "")
 	reAd := regexp.MustCompile(`(?i)\[\d{2}:\d{2}[\.:]\d{2,3}\].*?(www\.|.net|.com|翻译:|QQ:|微信:).*?\n?`)
 	text = reAd.ReplaceAllString(text, "")
+	reTime := regexp.MustCompile(`\[(\d{2}:\d{2})[\.:](\d{2})\d*\]`)
+	text = reTime.ReplaceAllString(text, "[$1.$2]")
 	return strings.TrimSpace(text)
 }
 
@@ -284,6 +298,7 @@ func mergeTranslatedLyrics(lrc string, tlyric string) string {
 type SongData struct {
 	ID       int64    `json:"ID"`
 	Name     string   `json:"Name"`
+	Work     string   `json:"Work"`
 	TrackNum int      `json:"TrackNum"`
 	DiscNum  int      `json:"DiscNum"`
 	Artists  []string `json:"Artists"`
@@ -301,6 +316,15 @@ type AlbumData struct {
 	PublishTime  int64      `json:"PublishTime"`
 	PDFLink      string     `json:"PDFLink"`
 	Songs        []SongData `json:"Songs"`
+}
+
+func extractWorkAndTitle(rawName string) (string, string) {
+	cleanName := strings.ReplaceAll(rawName, "：", ":")
+	parts := strings.SplitN(cleanName, ":", 2)
+	if len(parts) > 1 {
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+	}
+	return "", strings.TrimSpace(rawName)
 }
 
 type IDCacheData struct {
@@ -441,9 +465,11 @@ func fetchCompleteAlbumData(albumName, artistName, albumDir string) (AlbumData, 
 		for _, a := range s.Ar {
 			artists = append(artists, strings.TrimSpace(a.Name))
 		}
+		work, title := extractWorkAndTitle(s.Name)
 		data.Songs = append(data.Songs, SongData{
 			ID:       s.Id,
-			Name:     s.Name,
+			Name:     title,
+			Work:     work,
 			TrackNum: s.No,
 			Artists:  artists,
 		})
@@ -681,7 +707,7 @@ type lyricResponse struct {
 	Tlyric struct{ Lyric string `json:"lyric"` } `json:"tlyric"`
 }
 
-func fetchAndWriteLocalLyrics(title, artist, absolutePath string, knownSongID int64) string {
+func fetchAndWriteLocalLyrics(title, artist, album, absolutePath string, knownSongID int64) string {
 	if absolutePath == "" {
 		return ""
 	}
@@ -695,37 +721,78 @@ func fetchAndWriteLocalLyrics(title, artist, absolutePath string, knownSongID in
 	}
 
 	songID := knownSongID
-	if songID == 0 {
-		songID, _, _ = resolveID(fmt.Sprintf("%s %s", title, cleanSearchTerm(artist)), 1)
+
+	localData, found := getLocalAlbumData(saveDir)
+	if !found {
+		pdk.Log(pdk.LogInfo, fmt.Sprintf("🟡 歌词动作: 挂起等待！未检测到本地 JSON，强制优先获取专辑信息: %s", saveDir))
+		
+		fetchedData, err := fetchCompleteAlbumData(album, artist, saveDir)
+		if err == nil && fetchedData.AlbumID > 0 {
+			fetchedData.PDFLink = fetchQobuzPDFLink(album, artist)
+			saveLocalAlbumData(saveDir, fetchedData)
+			localData = fetchedData
+			found = true
+			pdk.Log(pdk.LogInfo, "✅ 歌词动作: JSON 成功保存到本地，继续执行歌词动作")
+		} else {
+			pdk.Log(pdk.LogError, "❌ 歌词动作: JSON 获取失败，终止歌词获取动作")
+			return ""
+		}
+	} else {
+		pdk.Log(pdk.LogInfo, "🚨 歌词动作: 检查到本地已存在 netease_metadata.json，跳过 API 获取专辑数据")
+	}
+
+	if songID == 0 && found {
+		fileName := filepath.Base(absolutePath)
+		if matchedSong, foundSong := matchLocalFileToNeteaseSong(fileName, localData.Songs); foundSong && matchedSong.ID > 0 {
+			songID = matchedSong.ID
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("🔍 歌词动作: 从本地 JSON 中匹配到 %s 的 ID 为: %d", fileName, songID))
+		} else {
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("❌ 歌词动作:  JSON 中未匹配到 %s 的曲目信息", fileName))
+		}
 	}
 
 	if songID == 0 {
+		pdk.Log(pdk.LogInfo, "⚠️ 歌词动作: 未获取到有效 ID。已取消关键字搜索逻辑，直接返回空歌词")
 		return ""
 	}
 
+	pdk.Log(pdk.LogInfo, fmt.Sprintf("📄 歌词动作: 使用曲目 ID [%d] 向网易云请求歌词...", songID))
 	apiURL := "https://interface3.music.163.com/api/song/lyric"
 	payload := fmt.Sprintf("id=%d&cp=false&tv=0&lv=0&rv=0&kv=0&yv=0&ytv=0&yrv=0", songID)
 	resp, err := host.HTTPSend(host.HTTPRequest{
 		Method:  "POST",
 		URL:     apiURL,
-		Headers: buildNeteaseHeaders(map[string]string{"Referer": "https://music.163.com/", "Content-Type": "application/x-www-form-urlencoded", "Cookie": "os=pc"}),
+		Headers: buildNeteaseHeaders(map[string]string{
+			"Referer":      "https://music.163.com/", 
+			"Content-Type": "application/x-www-form-urlencoded", 
+			"Cookie": "os=osx; osver=MacOS-14.3.1-arm; appver=2.0.3.131777",
+		}),
 		Body:    []byte(payload),
 	})
+	
 	if err != nil {
+		pdk.Log(pdk.LogError, fmt.Sprintf("[Netease Debug] 歌词动作: 请求失败 ID %d: %v", songID, err))
 		return ""
 	}
 
 	var lrcResp lyricResponse
-	json.Unmarshal(resp.Body, &lrcResp)
-	lrcText := cleanLyric(lrcResp.Lrc.Lyric)
-	tlyricText := cleanLyric(lrcResp.Tlyric.Lyric)
-	if lrcText == "" {
+	if err := json.Unmarshal(resp.Body, &lrcResp); err != nil {
 		return ""
 	}
+
+	lrcText := cleanLyric(lrcResp.Lrc.Lyric)
+	tlyricText := cleanLyric(lrcResp.Tlyric.Lyric)
+
+	if lrcText == "" {
+		pdk.Log(pdk.LogInfo, fmt.Sprintf("⚠️ 歌词动作: 曲目 ID %d 的 API 响应中无歌词数据，正常结束", songID))
+		return ""
+	}
+	
 	finalLyric := mergeTranslatedLyrics(lrcText, tlyricText)
 
 	if getConfigBool("enable_write_lyrics", true) {
 		os.WriteFile(lrcPath, []byte(finalLyric), 0666)
+		pdk.Log(pdk.LogInfo, fmt.Sprintf("✅ 歌词已写入本地: %s", lrcPath))
 	}
 	return finalLyric
 }
@@ -758,7 +825,7 @@ func cleanFlacFile(absPath string) error {
 
 	if string(magic) != "fLaC" {
 		file.Close()
-		return fmt.Errorf("按协议计算大小后未找到真实的 fLaC 标识，跳过修复")
+		return fmt.Errorf("🚨 按协议计算大小后未找到真实的 fLaC 标识，跳过修复")
 	}
 
 	tempPath := absPath + ".tmp"
@@ -786,7 +853,7 @@ func writeTags(absPath, ext string, song SongData, album AlbumData, year, commen
 
 	defer func() {
 		if r := recover(); r != nil {
-			pdk.Log(pdk.LogInfo, fmt.Sprintf("[TagWriter] [严重警告] 处理 %s 时底层库发生致命崩溃，已拦截跳过: %v", filename, r))
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("⛔ 处理 %s 时底层库发生致命崩溃，已拦截跳过: %v", filename, r))
 		}
 	}()
 
@@ -796,7 +863,7 @@ func writeTags(absPath, ext string, song SongData, album AlbumData, year, commen
 	case ".mp3":
 		tag, err := id3v2.Open(absPath, id3v2.Options{Parse: true})
 		if err != nil {
-			pdk.Log(pdk.LogInfo, fmt.Sprintf("[TagWriter] [警告] 无法打开 MP3: %s, err: %v", filename, err))
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("⛔ 无法打开 MP3: %s, err: %v", filename, err))
 			return false
 		}
 		defer tag.Close()
@@ -806,7 +873,13 @@ func writeTags(absPath, ext string, song SongData, album AlbumData, year, commen
 
 		if tag.Artist() == "" && artistStr != "" { tag.SetArtist(artistStr); changed = true }
 		if tag.Album() == "" && album.AlbumName != "" { tag.SetAlbum(album.AlbumName); changed = true }
+		if tag.Title() == "" && song.Name != "" { tag.SetTitle(song.Name); changed = true }
 		if tag.Year() == "" && year != "" { tag.SetYear(year); changed = true }
+
+		if len(tag.GetFrames("TIT1")) == 0 && song.Work != "" {
+			tag.AddTextFrame("TIT1", id3v2.EncodingUTF8, song.Work)
+			changed = true
+		}
 
 		if len(tag.GetFrames("TRCK")) == 0 && song.TrackNum > 0 {
 			tag.AddTextFrame("TRCK", id3v2.EncodingUTF8, fmt.Sprintf("%d", song.TrackNum))
@@ -864,7 +937,7 @@ func writeTags(absPath, ext string, song SongData, album AlbumData, year, commen
 
 		if changed {
 			if err := tag.Save(); err != nil { return false }
-			pdk.Log(pdk.LogInfo, fmt.Sprintf("[TagWriter] 成功写入 MP3 标签: %s", filename))
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("✅ 成功写入 MP3 标签: %s", filename))
 			return true
 		}
 		return true
@@ -873,7 +946,7 @@ func writeTags(absPath, ext string, song SongData, album AlbumData, year, commen
 		f, err := flac.ParseFile(absPath)
 		if err != nil {
 			if strings.Contains(err.Error(), "fLaC head incorrect") {
-				pdk.Log(pdk.LogInfo, fmt.Sprintf("[TagWriter] 检测到不规范的 FLAC 头部，尝试修复: %s", filename))
+				pdk.Log(pdk.LogInfo, fmt.Sprintf("⚠️ 检测到不规范的 FLAC 头部，尝试修复: %s", filename))
 				if fixErr := cleanFlacFile(absPath); fixErr == nil {
 					f, err = flac.ParseFile(absPath)
 				}
@@ -892,6 +965,11 @@ func writeTags(absPath, ext string, song SongData, album AlbumData, year, commen
 
 		getFlacLen := func(key string) int { v, _ := cmt.Get(key); return len(v) }
 		changed := false
+
+		if getFlacLen("TITLE") == 0 && song.Name != "" { cmt.Add("TITLE", song.Name); changed = true }
+		
+		if getFlacLen("WORK") == 0 && song.Work != "" { cmt.Add("WORK", song.Work); changed = true }
+		if getFlacLen("GROUPING") == 0 && song.Work != "" { cmt.Add("GROUPING", song.Work); changed = true }
 
 		if getFlacLen("ARTIST") == 0 && len(song.Artists) > 0 {
 			for _, a := range song.Artists { cmt.Add("ARTIST", a) }
@@ -941,7 +1019,7 @@ func writeTags(absPath, ext string, song SongData, album AlbumData, year, commen
 				return false
 			}
 			if err := os.Rename(tempPath, absPath); err != nil { return false }
-			pdk.Log(pdk.LogInfo, fmt.Sprintf("[TagWriter] 成功写入 FLAC 标签: %s", filename))
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("✅ 成功写入 FLAC 标签: %s", filename))
 			return true
 		}
 		return true
@@ -955,6 +1033,7 @@ func writeTags(absPath, ext string, song SongData, album AlbumData, year, commen
 
 		changed := false
 
+		if tags.Title == "" && song.Name != "" { tags.Title = song.Name; changed = true }
 		if tags.Artist == "" && artistStr != "" { tags.Artist = artistStr; changed = true }
 		if tags.AlbumArtist == "" && artistStr != "" { tags.AlbumArtist = artistStr; changed = true }
 		if tags.Album == "" && album.AlbumName != "" { tags.Album = album.AlbumName; changed = true }
@@ -966,6 +1045,9 @@ func writeTags(absPath, ext string, song SongData, album AlbumData, year, commen
 		if tags.Custom == nil { tags.Custom = make(map[string]string) }
 		if _, exists := tags.Custom["label"]; !exists && album.Company != "" { tags.Custom["label"] = album.Company; changed = true }
 		if _, exists := tags.Custom["ISRC"]; !exists && song.ISRC != "" { tags.Custom["ISRC"] = song.ISRC; changed = true }
+		
+		if _, exists := tags.Custom["WORK"]; !exists && song.Work != "" { tags.Custom["WORK"] = song.Work; changed = true }
+		if _, exists := tags.Custom["GROUPING"]; !exists && song.Work != "" { tags.Custom["GROUPING"] = song.Work; changed = true }
 
 		if tags.Comment == "" && comment != "" { tags.Comment = comment; changed = true }
 		if tags.Lyrics == "" && lyric != "" { tags.Lyrics = lyric; changed = true }
@@ -977,7 +1059,7 @@ func writeTags(absPath, ext string, song SongData, album AlbumData, year, commen
 
 		if changed {
 			if err := mp4.Write(tags, []string{}); err != nil { return false }
-			pdk.Log(pdk.LogInfo, fmt.Sprintf("[TagWriter] 成功写入 M4A 标签: %s", filename))
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("✅ 成功写入 M4A 标签: %s", filename))
 			return true
 		}
 		return true
@@ -994,9 +1076,9 @@ func triggerAlbumPreload(albumName, artistName string) {
 	}
 	host.KVStoreSet(lockKey, []byte(fmt.Sprintf("%d", time.Now().Unix())))
 
-	albumDir := guessAlbumPath(albumName, artistName)
+	albumDir := resolveAlbumDir(albumName, artistName)
 	if albumDir == "" {
-		artistDir := guessArtistPath(artistName)
+		artistDir := resolveArtistDir(artistName)
 		if artistDir != "" {
 			_, artistPic, _ := resolveID(artistName, 100)
 			downloadImage(artistPic, filepath.Join(artistDir, "artist.jpg"))
@@ -1004,7 +1086,7 @@ func triggerAlbumPreload(albumName, artistName string) {
 		return
 	}
 
-	pdk.Log(pdk.LogInfo, fmt.Sprintf("[Phase1] 进入专辑页，开始获取并生成元数据 JSON: %s", albumDir))
+	pdk.Log(pdk.LogInfo, fmt.Sprintf("⏳ 进入专辑页，开始获取并生成元数据 JSON: %s", albumDir))
 
 	pdfLink := fetchQobuzPDFLink(albumName, artistName)
 	
@@ -1015,15 +1097,15 @@ func triggerAlbumPreload(albumName, artistName string) {
 			albumData.PDFLink = pdfLink
 			saveLocalAlbumData(albumDir, albumData)
 		}
-		pdk.Log(pdk.LogInfo, "[Phase1] 本地 JSON 缓存已存在，跳过网易云 API 请求")
+		pdk.Log(pdk.LogInfo, "✅ 本地 JSON 缓存已存在，跳过网易云 API 请求")
 	} else {
-		pdk.Log(pdk.LogInfo, "[Phase1] 本地无 JSON 缓存，正在拉取网易云 API...")
+		pdk.Log(pdk.LogInfo, "⏳ 本地无 JSON 缓存，正在拉取网易云 API...")
 		fetchedData, err := fetchCompleteAlbumData(albumName, artistName, albumDir)
 		if err == nil && fetchedData.AlbumID > 0 {
 			fetchedData.PDFLink = pdfLink
 			saveLocalAlbumData(albumDir, fetchedData)
 			albumData = fetchedData
-			pdk.Log(pdk.LogInfo, "[Phase1] API 拉取完成，成功生成 netease_metadata.json")
+			pdk.Log(pdk.LogInfo, "✅ API 拉取完成，成功生成 netease_metadata.json")
 		}
 	}
 
@@ -1035,7 +1117,34 @@ func triggerAlbumPreload(albumName, artistName string) {
 			downloadImage(albumData.ArtistPicURL, filepath.Join(filepath.Dir(albumDir), "artist.jpg"))
 		}
 	}
-	pdk.Log(pdk.LogInfo, "[Phase1] 专辑元数据加载结束")
+	pdk.Log(pdk.LogInfo, "✅ 专辑元数据加载结束")
+}
+
+func (a *neteaseAgent) GetAlbumInfo(input metadata.AlbumRequest) (*metadata.AlbumInfoResponse, error) {
+	triggerAlbumPreload(input.Name, input.Artist)
+
+	albumDir := resolveAlbumDir(input.Name, input.Artist)
+	if localData, found := getLocalAlbumData(albumDir); found {
+		desc := strings.ReplaceAll(localData.Description, "\n", "<br>")
+		if localData.PDFLink != "" {
+			return &metadata.AlbumInfoResponse{Description: localData.PDFLink + "<br>" + desc}, nil
+		}
+		return &metadata.AlbumInfoResponse{Description: desc}, nil
+	}
+	
+	albumID, _, _ := resolveID(fmt.Sprintf("%s %s", cleanSearchTerm(input.Name), cleanSearchTerm(input.Artist)), 10)
+	if albumID == 0 { return nil, nil }
+	resp, _ := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: fmt.Sprintf("%s/v1/album/%d", neteaseBaseURL, albumID), Headers: buildNeteaseHeaders(nil)})
+	var detail struct { Album struct { Description string `json:"description"` } `json:"album"` }
+	json.Unmarshal(resp.Body, &detail)
+	
+	desc := strings.ReplaceAll(compactText(detail.Album.Description), "\n", "")
+	pdfLink := fetchQobuzPDFLink(input.Name, input.Artist)
+	if pdfLink != "" {
+		if desc != "" { return &metadata.AlbumInfoResponse{Description: pdfLink + "" + desc}, nil }
+		return &metadata.AlbumInfoResponse{Description: pdfLink}, nil
+	}
+	return &metadata.AlbumInfoResponse{Description: desc}, nil
 }
 
 func fetchMetadataAndTag(absPath, title, artist, originalAlbum string) {
@@ -1057,16 +1166,19 @@ func fetchMetadataAndTag(absPath, title, artist, originalAlbum string) {
 	fileName := filepath.Base(absPath)
 
 	if isTrackProcessed(albumDir, fileName) {
-		pdk.Log(pdk.LogInfo, fmt.Sprintf("[Phase2] 跳过 (此曲目已完成写入): %s", fileName))
+		pdk.Log(pdk.LogInfo, fmt.Sprintf("✅ 跳过 (此曲目已完成写入): %s", fileName))
 		return
 	}
 
-	pdk.Log(pdk.LogInfo, fmt.Sprintf("[Phase2] 元数据正在处理并写入单曲: %s", fileName))
+	pdk.Log(pdk.LogInfo, fmt.Sprintf("🚀 元数据正在处理并写入单曲: %s", fileName))
 
 	var albumData AlbumData
+	
 	if localData, found := getLocalAlbumData(albumDir); found {
 		albumData = localData
+		pdk.Log(pdk.LogInfo, "📄 已检测到本地 netease_metadata.json，跳过网易云 API 获取以防止覆盖数据")
 	} else {
+		pdk.Log(pdk.LogInfo, "⏳ 本地无 JSON 缓存，正在调用 API 获取专辑数据并保存...")
 		albumData, _ = fetchCompleteAlbumData(originalAlbum, artist, albumDir)
 		albumData.PDFLink = fetchQobuzPDFLink(originalAlbum, artist)
 		if albumData.AlbumID > 0 {
@@ -1086,10 +1198,12 @@ func fetchMetadataAndTag(absPath, title, artist, originalAlbum string) {
 	matchedSong, foundSong := matchLocalFileToNeteaseSong(fileName, albumData.Songs)
 	if !foundSong {
 		matchedSong = SongData{Artists: []string{artist}}
-		matchedSong.Name = strings.TrimSuffix(fileName, ext)
+		work, title := extractWorkAndTitle(strings.TrimSuffix(fileName, ext))
+		matchedSong.Name = title
+		matchedSong.Work = work
 	}
 
-	lyricText := fetchAndWriteLocalLyrics(matchedSong.Name, artist, absPath, matchedSong.ID)
+	lyricText := fetchAndWriteLocalLyrics(matchedSong.Name, artist, originalAlbum, absPath, matchedSong.ID)
 
 	var picData []byte
 	if getConfigBool("enable_write_cover_image", true) {
@@ -1128,19 +1242,42 @@ func fetchMetadataAndTag(absPath, title, artist, originalAlbum string) {
 }
 
 func matchLocalFileToNeteaseSong(filename string, songs []SongData) (SongData, bool) {
-	reNum := regexp.MustCompile(`^\s*0*(\d+)`)
-	match := reNum.FindStringSubmatch(filename)
+	ext := filepath.Ext(filename)
+	nameWithoutExt := strings.TrimSuffix(filename, ext)
+	reNum := regexp.MustCompile(`^\s*0*(\d+)[\.\-\s]*`)
+	match := reNum.FindStringSubmatch(nameWithoutExt)
 	var fileTrackNum int
-	if len(match) > 1 { fmt.Sscanf(match[1], "%d", &fileTrackNum) }
+	if len(match) > 1 {
+		fmt.Sscanf(match[1], "%d", &fileTrackNum)
+	}
+	
+	cleanFileName := cleanSongTitle(nameWithoutExt)
+	cleanFileNameLower := strings.ToLower(cleanFileName)
 
-	if fileTrackNum > 0 {
-		for _, s := range songs {
-			if s.TrackNum == fileTrackNum { return s, true }
+	for _, s := range songs {
+		apiCleanName := strings.ToLower(cleanSongTitle(s.Name))
+		if cleanFileNameLower == apiCleanName {
+			return s, true
 		}
 	}
+
 	for _, s := range songs {
-		if fuzzyMatch(filename, s.Name) { return s, true }
+		apiCleanName := cleanSongTitle(s.Name)
+		if fuzzyMatch(cleanFileName, apiCleanName) {
+			return s, true
+		}
 	}
+
+	if fileTrackNum > 0 {
+		continuousTrackNum := 0
+		for _, s := range songs {
+			continuousTrackNum++
+			if s.TrackNum == fileTrackNum || continuousTrackNum == fileTrackNum {
+				return s, true
+			}
+		}
+	}
+
 	return SongData{}, false
 }
 
@@ -1210,6 +1347,49 @@ func findAlbumDirViaSubsonicAPI(albumName, artistName string) (string, string) {
 		}
 	}
 	return "", ""
+}
+
+func resolveAlbumDir(albumName, artistName string) string {
+	finalArtist := cleanArtistName(artistName)
+	cacheKey := fmt.Sprintf("path_album_%s_%s", cleanSearchTerm(albumName), cleanSearchTerm(finalArtist))
+
+	if data, ok, _ := host.KVStoreGet(cacheKey); ok {
+		dir := string(data)
+		if stat, err := os.Stat(dir); err == nil && stat.IsDir() {
+			return dir
+		}
+	}
+
+	dir, _ := findAlbumDirViaSubsonicAPI(albumName, finalArtist)
+	if dir != "" {
+		host.KVStoreSet(cacheKey, []byte(dir))
+		return dir
+	}
+
+	dir = guessAlbumPath(albumName, finalArtist)
+	if dir != "" {
+		host.KVStoreSet(cacheKey, []byte(dir))
+	}
+	return dir
+}
+
+func resolveArtistDir(artistName string) string {
+	finalArtist := cleanArtistName(artistName)
+	if finalArtist == "" { return "" }
+	cacheKey := fmt.Sprintf("path_artist_%s", cleanSearchTerm(finalArtist))
+
+	if data, ok, _ := host.KVStoreGet(cacheKey); ok {
+		dir := string(data)
+		if stat, err := os.Stat(dir); err == nil && stat.IsDir() {
+			return dir
+		}
+	}
+
+	dir := guessArtistPath(finalArtist)
+	if dir != "" {
+		host.KVStoreSet(cacheKey, []byte(dir))
+	}
+	return dir
 }
 
 func guessAlbumPath(albumName, artistName string) string {
@@ -1393,6 +1573,13 @@ func (a *neteaseAgent) IsAuthorized(_ scrobbler.IsAuthorizedRequest) (bool, erro
 func (a *neteaseAgent) NowPlaying(req scrobbler.NowPlayingRequest) error {
 	finalArtist, abs := getTrackArtistAndDir(req.Username, req.Track.ID, req.Track.Artist, req.Track.Path)
 	if abs != "" {
+		albumDir := filepath.Dir(abs)
+		cacheKey := fmt.Sprintf("path_album_%s_%s", cleanSearchTerm(req.Track.Album), cleanSearchTerm(finalArtist))
+		host.KVStoreSet(cacheKey, []byte(albumDir))
+
+		artistCacheKey := fmt.Sprintf("path_artist_%s", cleanSearchTerm(finalArtist))
+		host.KVStoreSet(artistCacheKey, []byte(filepath.Dir(albumDir)))
+
 		fetchMetadataAndTag(abs, req.Track.Title, finalArtist, req.Track.Album)
 	}
 	return nil
@@ -1401,6 +1588,13 @@ func (a *neteaseAgent) NowPlaying(req scrobbler.NowPlayingRequest) error {
 func (a *neteaseAgent) Scrobble(req scrobbler.ScrobbleRequest) error {
 	finalArtist, abs := getTrackArtistAndDir(req.Username, req.Track.ID, req.Track.Artist, req.Track.Path)
 	if abs != "" {
+		albumDir := filepath.Dir(abs)
+		cacheKey := fmt.Sprintf("path_album_%s_%s", cleanSearchTerm(req.Track.Album), cleanSearchTerm(finalArtist))
+		host.KVStoreSet(cacheKey, []byte(albumDir))
+
+		artistCacheKey := fmt.Sprintf("path_artist_%s", cleanSearchTerm(finalArtist))
+		host.KVStoreSet(artistCacheKey, []byte(filepath.Dir(albumDir)))
+
 		fetchMetadataAndTag(abs, req.Track.Title, finalArtist, req.Track.Album)
 	}
 	return nil
@@ -1412,36 +1606,11 @@ func (a *neteaseAgent) GetLyrics(input lyrics.GetLyricsRequest) (lyrics.GetLyric
 	if abs != "" {
 		fetchMetadataAndTag(abs, input.Track.Title, finalArtist, input.Track.Album)
 	}
-	lyricText := fetchAndWriteLocalLyrics(input.Track.Title, finalArtist, abs, 0)
+	
+	lyricText := fetchAndWriteLocalLyrics(input.Track.Title, finalArtist, input.Track.Album, abs, 0)
+	
 	if lyricText == "" { return lyrics.GetLyricsResponse{}, nil }
 	return lyrics.GetLyricsResponse{Lyrics: []lyrics.LyricsText{{Text: lyricText}}}, nil
-}
-
-func (a *neteaseAgent) GetAlbumInfo(input metadata.AlbumRequest) (*metadata.AlbumInfoResponse, error) {
-	triggerAlbumPreload(input.Name, input.Artist)
-
-	albumDir := guessAlbumPath(input.Name, input.Artist)
-	if localData, found := getLocalAlbumData(albumDir); found {
-		desc := strings.ReplaceAll(localData.Description, "\n", "<br>")
-		if localData.PDFLink != "" {
-			return &metadata.AlbumInfoResponse{Description: localData.PDFLink + "<br>" + desc}, nil
-		}
-		return &metadata.AlbumInfoResponse{Description: desc}, nil
-	}
-	
-	albumID, _, _ := resolveID(fmt.Sprintf("%s %s", cleanSearchTerm(input.Name), cleanSearchTerm(input.Artist)), 10)
-	if albumID == 0 { return nil, nil }
-	resp, _ := host.HTTPSend(host.HTTPRequest{Method: "GET", URL: fmt.Sprintf("%s/v1/album/%d", neteaseBaseURL, albumID), Headers: buildNeteaseHeaders(nil)})
-	var detail struct { Album struct { Description string `json:"description"` } `json:"album"` }
-	json.Unmarshal(resp.Body, &detail)
-	
-	desc := strings.ReplaceAll(compactText(detail.Album.Description), "\n", "")
-	pdfLink := fetchQobuzPDFLink(input.Name, input.Artist)
-	if pdfLink != "" {
-		if desc != "" { return &metadata.AlbumInfoResponse{Description: pdfLink + "" + desc}, nil }
-		return &metadata.AlbumInfoResponse{Description: pdfLink}, nil
-	}
-	return &metadata.AlbumInfoResponse{Description: desc}, nil
 }
 
 func (a *neteaseAgent) GetArtistBiography(input metadata.ArtistRequest) (*metadata.ArtistBiographyResponse, error) {
@@ -1453,11 +1622,40 @@ func (a *neteaseAgent) GetArtistBiography(input metadata.ArtistRequest) (*metada
 	return &metadata.ArtistBiographyResponse{Biography: strings.ReplaceAll(compactText(detail.Artist.BriefDesc), "\n", "<br>")}, nil
 }
 
+func (a *neteaseAgent) GetAlbumImages(input metadata.AlbumRequest) (*metadata.AlbumImagesResponse, error) {
+	albumDir := resolveAlbumDir(input.Name, input.Artist)
+	if albumDir != "" {
+		coverPath := filepath.Join(albumDir, "cover.jpg")
+		if stat, err := os.Stat(coverPath); err == nil && stat.Size() > 1024 {
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("🛑 拦截 API 请求: 检测到本地封面已存在，直接读取 (%s)", coverPath))
+			return nil, nil
+		}
+	}
+
+	triggerAlbumPreload(input.Name, input.Artist)
+
+	_, pic, _ := resolveID(fmt.Sprintf("%s %s", cleanSearchTerm(input.Name), cleanSearchTerm(input.Artist)), 10)
+	if pic == "" { return nil, nil }
+	res := getConfigString("image_resolution", "1200")
+	full := fmt.Sprintf("%s?param=%sy%s", strings.Replace(pic, "http://", "https://", 1), res, res)
+	var size int32
+	fmt.Sscanf(res, "%d", &size)
+	return &metadata.AlbumImagesResponse{Images: []metadata.ImageInfo{{URL: full, Size: size}}}, nil
+}
+
 func (a *neteaseAgent) GetArtistImages(input metadata.ArtistRequest) (*metadata.ArtistImagesResponse, error) {
+	artistDir := resolveArtistDir(input.Name)
+	if artistDir != "" {
+		artistImgPath := filepath.Join(artistDir, "artist.jpg")
+		if stat, err := os.Stat(artistImgPath); err == nil && stat.Size() > 1024 {
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("🛑 拦截 API 请求: 检测到本地头像已存在，直接读取 (%s)", artistImgPath))
+			return nil, nil
+		}
+	}
+
 	_, pic, _ := resolveID(cleanSearchTerm(input.Name), 100)
 	
 	if pic != "" && getConfigBool("enable_write_artist_image", true) {
-		artistDir := guessArtistPath(input.Name)
 		if artistDir != "" {
 			downloadImage(pic, filepath.Join(artistDir, "artist.jpg"))
 		}
@@ -1469,18 +1667,6 @@ func (a *neteaseAgent) GetArtistImages(input metadata.ArtistRequest) (*metadata.
 	var size int32
 	fmt.Sscanf(res, "%d", &size)
 	return &metadata.ArtistImagesResponse{Images: []metadata.ImageInfo{{URL: full, Size: size}}}, nil
-}
-
-func (a *neteaseAgent) GetAlbumImages(input metadata.AlbumRequest) (*metadata.AlbumImagesResponse, error) {
-	triggerAlbumPreload(input.Name, input.Artist)
-
-	_, pic, _ := resolveID(fmt.Sprintf("%s %s", cleanSearchTerm(input.Name), cleanSearchTerm(input.Artist)), 10)
-	if pic == "" { return nil, nil }
-	res := getConfigString("image_resolution", "1200")
-	full := fmt.Sprintf("%s?param=%sy%s", strings.Replace(pic, "http://", "https://", 1), res, res)
-	var size int32
-	fmt.Sscanf(res, "%d", &size)
-	return &metadata.AlbumImagesResponse{Images: []metadata.ImageInfo{{URL: full, Size: size}}}, nil
 }
 
 func (a *neteaseAgent) GetSimilarArtists(input metadata.SimilarArtistsRequest) (*metadata.SimilarArtistsResponse, error) {
@@ -1502,7 +1688,7 @@ func (a *neteaseAgent) GetSimilarArtists(input metadata.SimilarArtistsRequest) (
 	})
 	
 	if err != nil {
-		pdk.Log(pdk.LogInfo, fmt.Sprintf("[Netease API] 获取相似艺人请求失败: %v", err))
+		pdk.Log(pdk.LogInfo, fmt.Sprintf("❌ 获取相似艺人请求失败: %v", err))
 		return nil, nil
 	}
 
@@ -1517,12 +1703,12 @@ func (a *neteaseAgent) GetSimilarArtists(input metadata.SimilarArtistsRequest) (
 	}
 
 	if err := json.Unmarshal(resp.Body, &sr); err != nil {
-		pdk.Log(pdk.LogInfo, "[Netease API] 相似艺人 JSON 解析失败")
+		pdk.Log(pdk.LogInfo, "❌ 相似艺人 JSON 解析失败")
 		return nil, nil
 	}
 
 	if sr.Code != 200 {
-		pdk.Log(pdk.LogInfo, fmt.Sprintf("[Netease API] 相似艺人获取被拦截或无数据, Code: %d", sr.Code))
+		pdk.Log(pdk.LogInfo, fmt.Sprintf("🛑 相似艺人获取被拦截或无数据, Code: %d", sr.Code))
 		return nil, nil
 	}
 
@@ -1544,7 +1730,7 @@ func (a *neteaseAgent) GetSimilarArtists(input metadata.SimilarArtistsRequest) (
 		}
 	}
 	
-	pdk.Log(pdk.LogInfo, fmt.Sprintf("[Netease API] 成功获取并映射 %s 的相似艺人: %d 个", input.Name, len(res)))
+	pdk.Log(pdk.LogInfo, fmt.Sprintf("✅ 成功获取并映射 %s 的相似艺人: %d 个", input.Name, len(res)))
 	return &metadata.SimilarArtistsResponse{Artists: res}, nil
 }
 
