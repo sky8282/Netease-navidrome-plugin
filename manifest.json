@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "Netease Music Plugin",
   "author": "sky8282",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "下载与写入本地：歌词、专辑封面、歌手头像、Qobuz 的 PDF (国内需科学网络)、专辑元数据文件、元数据写入记录",
   "website": "https://github.com/sky8282/Netease-navidrome-plugin",
   "permissions": {
@@ -42,7 +42,7 @@
         "enable_write_artist_image": { "type": "boolean", "title": "写入本地歌手头像文件 (artist.jpg)", "default": true },
         "enable_write_metadata": { "type": "boolean", "title": "增量写入本地音轨元数据（请慎用）", "default": true },
         "enable_lyrics": { "type": "boolean", "title": "全局歌词抓取 API (供某些客户端发出的请求)", "default": true },
-        "navidrome_user": { "type": "string", "title": "请输入你的 navidrome 用户名，解决烦人的后台警报日志", "default": "admin" },
+        "navidrome_user": { "type": "string", "title": "请输入你的 navidrome 用户名，解决烦人的后台警报日志", "default": "" },
         "netease_cookie": { "type": "string", "title": "请输入网易云 MUSIC_U Cookie，获取相似艺人需要", "default": "" },
         "enable_qobuz_pdf": { "type": "boolean", "title": "下载 Qobuz PDF (需 🇫🇷 法国区 Qobuz Auth Tokens)", "default": true },
         "qobuz_auth_tokens": { "type": "string", "title": "请输入 🇫🇷 法国区 Qobuz Auth Tokens", "default": "dzDadAiP1ePUy3x1CIEbJ-VKcxQFHcB6f3eRlNSrOjPrwwxFiYckt0l5o7pevFMiAmGqbIroofkofYvovZlD0g" },
