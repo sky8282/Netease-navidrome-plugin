@@ -1,12 +1,12 @@
 # Netease-navidrome-plugin
 英文曲目多的建议使用 Qobuz 插件：https://github.com/sky8282/Qobuz-navidrome-plugin
-## Navidrome 的增强插件，基于网易云音乐 + Qobuz 数据源，实现自动补全本地音乐库元数据
+## Navidrome 的增强插件，基于网易云音乐 + Qobuz 数据源<br>实现自动补全本地音乐库元数据
 ✨ 功能特性
 * 🖼️ 自动写入专辑封面（ cover.jpg ）
 * 👤 自动写入歌手头像（ artist.jpg ）
 * 🎼 自动下载歌词（ 曲目名.lrc，翻译合并 ）
 * 📖 自动搜索 Qobuz 与下载专辑 PDF 文件（需 token，国内需科学网络）
-* 🎼 古典乐 作品 写入曲目元数据供定制版 feishin 读取
+* 🎼 古典乐 作品 写入曲目元数据供定制版 feishin 读取 （ 请从 Releases 下载定制版 feishin ）
 
 * 📚 自动补全：
     * 专辑简介（ Description ）
@@ -25,12 +25,13 @@
 * ⚡ 内置缓存（ KVStore ），减少 API 请求
 
 ## 🧠 插件在以下时机触发：
+* ⚠️ 刮削的对象没有被 navidrome 缓存
 * ▶️ 播放歌曲（ NowPlaying ）
-* 📊 Scrobble 上报
+* 📊 Scrobble 状态上报
 * 📀 打开专辑页
 * 👤 打开歌手页
 
-## 🚀 从 Releases 下载 netease.ndp 将文件放入 Navidrome 根目录下的 plugins 插件文件夹里，并在官方网页里开启插件：
+## 🚀 从 Releases 下载 netease.ndp 将文件放入 Navidrome 目录下的 plugins 插件文件夹里，并在官方网页里开启插件：
 ```text
 /plugins/
 └── netease.ndp
@@ -77,8 +78,7 @@ PLUGINS_CACHESIZE = "200MB"
 <img width="2354" height="2260" alt="1" src="https://github.com/user-attachments/assets/b525e171-e912-43b0-a7fd-c95bcada91d5" />
 
 ## 🛠️ 网页里设置与启用插件：
-
-<img width="1794" height="1858" alt="1" src="https://github.com/user-attachments/assets/ac4251d3-726f-4cf5-9a41-9a88001c6aa5" />
+<img width="1616" height="1734" alt="1" src="https://github.com/user-attachments/assets/fbda1a4b-cf53-4644-992f-118f641a7256" />
 <img width="1796" height="1570" alt="2" src="https://github.com/user-attachments/assets/a713db0c-d028-4b91-af90-5587fe72edb4" />
 
 
