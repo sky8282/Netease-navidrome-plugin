@@ -19,7 +19,7 @@
     * 专辑封面               artist.jpg
     * 歌词                  曲目名.lrc
     * 专辑画册               专辑名.pdf（ 需 🇫🇷 法国区 Token ）
-    * 增量写入本地音轨元数据
+    * 增量写入本地音轨元数据   ⚠️ 慎用 ⚠️
     * 专辑元数据             netease_metadata.json
     * 专辑曲目写入记录列表     netease_processed.txt
 * ⚡ 内置缓存（ KVStore ），减少 API 请求
@@ -51,7 +51,7 @@ zip netease.ndp plugin.wasm manifest.json
 ```
 ## 🛠️ 启用插件示列：
 ```text
-AGENTS = "netease,deezer,lastfm,listenbrainz"
+AGENTS = "netease,qobuz,deezer,lastfm,listenbrainz"
 PLUGINS_ENABLED = true
 PLUGINS_FOLDER = "./plugins"
 PLUGINS_AUTORELOAD = true
