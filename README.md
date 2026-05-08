@@ -57,6 +57,8 @@ PLUGINS_FOLDER = "./plugins"
 PLUGINS_AUTORELOAD = true
 PLUGINS_LOGLEVEL = "INFO"
 PLUGINS_CACHESIZE = "200MB"
+AUTOIMPORTPLAYLISTS = true
+ARTISTARTPRIORITY = "album/artist.*,artist.*,external"   #开启使用插件显示歌手头像
 ```
 ## 📖 歌手头像 / 专辑封面 / 歌词 / PDF 保存路径格式:
 ```text
