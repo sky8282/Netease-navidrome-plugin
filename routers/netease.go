@@ -824,36 +824,47 @@ func downloadImage(urlStr, savePath string) {
 	if urlStr == "" || savePath == "" {
 		return
 	}
-	if stat, err := os.Stat(savePath); err == nil && stat.Size() > 1024 {
+	if _, err := os.Stat(savePath); err == nil {
 		return
 	}
 
 	res := getConfigString("image_resolution", "1200")
 	cleanURL := strings.Split(urlStr, "?")[0]
+
 	fullPic := fmt.Sprintf("%s?param=%sy%s", strings.Replace(cleanURL, "http://", "https://", 1), res, res)
 	
 	resp, err := host.HTTPSend(host.HTTPRequest{
-		Method:  "GET",
-		URL:     fullPic,
+		Method:  "GET", 
+		URL:     fullPic, 
 		Headers: map[string]string{"User-Agent": defaultUserAgent},
 	})
 
-	if err == nil && resp != nil && resp.StatusCode == 200 && len(resp.Body) > 1024 {
-		head := resp.Body
-		isValidImg := false
-		if len(head) > 4 {
-			if head[0] == 0xFF && head[1] == 0xD8 && head[2] == 0xFF {
-				isValidImg = true
-			} else if head[0] == 0x89 && head[1] == 0x50 && head[2] == 0x4E && head[3] == 0x47 {
-				isValidImg = true
-			}
-		}
+	if err != nil || resp == nil || resp.StatusCode != 200 {
+		fallbackPic := fmt.Sprintf("%s?param=%sy%s", strings.Replace(cleanURL, "https://", "http://", 1), res, res)
+		resp, err = host.HTTPSend(host.HTTPRequest{
+			Method:  "GET", 
+			URL:     fallbackPic, 
+			Headers: map[string]string{"User-Agent": defaultUserAgent},
+		})
+	}
 
-		if isValidImg {
-			os.WriteFile(savePath, resp.Body, 0666)
+	if err == nil && resp != nil && resp.StatusCode == 200 {
+		writeErr := os.WriteFile(savePath, resp.Body, 0666)
+		if writeErr == nil {
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("✅ 成功下载并写入图片: %s", savePath))
 		} else {
-			pdk.Log(pdk.LogWarn, fmt.Sprintf("⚠️ 图片似乎损坏，拒绝覆盖 (%s)", savePath))
+			pdk.Log(pdk.LogError, fmt.Sprintf("❌ 图片写入硬盘失败 (权限或IO问题): %s", savePath))
 		}
+	} else {
+		status := 0
+		errMsg := "无详细错误信息"
+		if resp != nil {
+			status = int(resp.StatusCode)
+		}
+		if err != nil {
+			errMsg = err.Error()
+		}
+		pdk.Log(pdk.LogError, fmt.Sprintf("❌ 图片下载彻底失败 HTTP %d | 报错: %s | URL: %s", status, errMsg, fullPic))
 	}
 }
 
