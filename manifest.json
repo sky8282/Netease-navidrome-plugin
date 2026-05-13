@@ -15,7 +15,8 @@
         "music.163.com",
         "interface3.music.163.com",
         "www.qobuz.com",
-        "static.qobuz.com"
+        "static.qobuz.com",
+        "*.music.126.net"
       ]
     },
     "library": {
