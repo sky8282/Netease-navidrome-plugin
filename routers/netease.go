@@ -248,6 +248,10 @@ func isTrackProcessed(albumDir, filename string) bool {
 }
 
 func markTrackProcessed(albumDir, filename string) {
+	if !getConfigBool("enable_write_processed", false) {
+		return
+	}
+
 	f, err := os.OpenFile(filepath.Join(albumDir, "netease_processed.txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err == nil {
 		f.WriteString(filename + "\n")
