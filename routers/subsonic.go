@@ -52,6 +52,10 @@ func getCleanAlbumDir(absPath string) string {
 }
 
 func getBaseMusicDir() string {
+	if cfgDir := getConfigString("music_folder", ""); cfgDir != "" {
+		return cfgDir
+	}
+
 	libraries, err := host.LibraryGetAllLibraries()
 	if err == nil && len(libraries) > 0 {
 		for _, lib := range libraries {
@@ -64,7 +68,7 @@ func getBaseMusicDir() string {
 			}
 		}
 	}
-	return getConfigString("music_folder", "")
+	return ""
 }
 
 func saveGlobalArtistImage(artistName string, picURL string) {
@@ -426,17 +430,16 @@ func resolveAbsolutePath(relPath, suffix string, size int64) (string, error) {
 		return "", fmt.Errorf("invalid parameters")
 	}
 	
-	libraries, _ := host.LibraryGetAllLibraries()
 	var roots []string
+	
+	if fallback := getConfigString("music_folder", ""); fallback != "" {
+		roots = append(roots, fallback)
+	}
+
+	libraries, _ := host.LibraryGetAllLibraries()
 	for _, lib := range libraries {
 		if lib.MountPoint != "" { roots = append(roots, lib.MountPoint) }
 		if lib.Path != "" { roots = append(roots, lib.Path) }
-	}
-	
-	if len(roots) == 0 {
-		if fallback := getConfigString("music_folder", ""); fallback != "" {
-			roots = append(roots, fallback)
-		}
 	}
 
 	for _, root := range roots {
@@ -467,26 +470,36 @@ func resolveAbsolutePath(relPath, suffix string, size int64) (string, error) {
 }
 
 func resolveFromRelativePath(relPath string) string {
-	if relPath == "" || filepath.IsAbs(relPath) {
+	if relPath == "" {
+		return ""
+	}
+	
+	var roots []string
+	if fallback := getConfigString("music_folder", ""); fallback != "" {
+		roots = append(roots, fallback)
+	}
+
+	libraries, _ := host.LibraryGetAllLibraries()
+	for _, lib := range libraries {
+		if lib.MountPoint != "" { roots = append(roots, lib.MountPoint) }
+		if lib.Path != "" { roots = append(roots, lib.Path) }
+	}
+
+	if filepath.IsAbs(relPath) {
 		if _, err := os.Stat(relPath); err == nil {
 			if realPath, err := filepath.EvalSymlinks(relPath); err == nil {
 				return realPath
 			}
 			return relPath
 		}
-		return "" 
-	}
-	
-	libraries, _ := host.LibraryGetAllLibraries()
-	var roots []string
-	for _, lib := range libraries {
-		if lib.MountPoint != "" { roots = append(roots, lib.MountPoint) }
-		if lib.Path != "" { roots = append(roots, lib.Path) }
-	}
-	
-	if len(roots) == 0 {
-		if fallback := getConfigString("music_folder", ""); fallback != "" {
-			roots = append(roots, fallback)
+		
+		parts := strings.Split(filepath.ToSlash(relPath), "/")
+		if len(parts) >= 3 {
+			relPath = filepath.Join(parts[len(parts)-3:]...)
+		} else if len(parts) >= 2 {
+			relPath = filepath.Join(parts[len(parts)-2:]...)
+		} else {
+			relPath = filepath.Base(relPath)
 		}
 	}
 
@@ -507,12 +520,6 @@ func resolveFromRelativePath(relPath string) string {
 				return absPath
 			}
 			return fullPath
-		}
-	}
-	
-	if absFallback, err := filepath.Abs(relPath); err == nil {
-		if _, statErr := os.Stat(absFallback); statErr == nil {
-			return absFallback
 		}
 	}
 	
