@@ -74,6 +74,11 @@
           "title": "写入本地专辑元数据文件 (netease_metadata.json)",
           "default": false
         },
+        "enable_write_processed": {
+          "type": "boolean",
+          "title": "写入本地处理记录文件 (netease_processed.txt)",
+          "default": false
+        },
         "enable_lyrics": {
           "type": "boolean",
           "title": "全局歌词抓取 API (供某些客户端发出的请求)",
@@ -145,6 +150,10 @@
         {
           "type": "Control",
           "scope": "#/properties/enable_write_json"
+        },
+        {
+          "type": "Control",
+          "scope": "#/properties/enable_write_processed"
         },
         {
           "type": "Control",
