@@ -23,7 +23,11 @@
     * 增量写入本地音轨元数据   ⚠️ 慎用 ⚠️
     * 专辑元数据             netease_metadata.json
     * 专辑曲目写入记录列表     netease_processed.txt
-* ⚡ 内置缓存（ KVStore ），减少 API 请求
+* ⚡ 内置缓存（ KVStore - DAO 存储 ）减少 API 请求
+* ⌛ 分布式分布式叫号排队系统，
+    * 分布式并发槽位 ( Distributed Semaphore )，特别是 navidrome 全局风暴扫描时
+    * 写后二次确认 ( Double-Check Locking )
+    * 退让抖动休眠 ( Jitter Sleep )
 
 ## 🧠 插件在以下时机触发：
 * ⚠️ 刮削的对象没有被 navidrome 缓存
@@ -40,7 +44,7 @@
 ## 🛠️ 或者自行编译：
 1. 安装依赖
 ```text
-go mod init netease-plugin&&go mod tidy
+go mod init netease-plugin && go mod tidy
 ```
 2. 编译 wasm 如报警自行安装所需的工具:
 ```text
@@ -81,8 +85,9 @@ ARTISTARTPRIORITY = "album/artist.*,artist.*,external"   #开启使用插件显�
 <img width="2354" height="2260" alt="1" src="https://github.com/user-attachments/assets/b525e171-e912-43b0-a7fd-c95bcada91d5" />
 
 ## 🛠️ 网页里设置与启用插件：
-<img width="1616" height="1734" alt="1" src="https://github.com/user-attachments/assets/fbda1a4b-cf53-4644-992f-118f641a7256" />
-<img width="1796" height="1570" alt="2" src="https://github.com/user-attachments/assets/a713db0c-d028-4b91-af90-5587fe72edb4" />
+<img width="1430" height="1950" alt="1" src="https://github.com/user-attachments/assets/838aadda-71d9-4d01-9cb0-6691a6aae3ae" />
+<img width="1440" height="1866" alt="2" src="https://github.com/user-attachments/assets/8908847a-09e5-432f-9aac-7a933538816c" />
+
 
 
 
