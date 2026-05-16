@@ -272,7 +272,7 @@ func (a *neteaseAgent) GetSimilarArtists(input metadata.SimilarArtistsRequest) (
 	for _, art := range sr.Artists {
 		if art.Name != "" {
 			res = append(res, metadata.ArtistRef{
-				ID:   fmt.Sprintf("netease_art_%d", art.Id),
+				ID:   fmt.Sprintf("netease_art_%d", art.Id), 
 				Name: art.Name,
 			})
 
