@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "Netease Music Plugin",
   "author": "sky8282",
-  "version": "0.0.7",
-  "description": "下载与写入本地：歌词、专辑封面、歌手头像、Qobuz 的 PDF 以及专辑元数据文件直写",
+  "version": "0.0.8",
+  "description": "下载与写入本地：歌词、专辑封面、歌手头像、Qobuz 的 PDF 以及专辑元数据文件直写 (高并发列队保护与统一DAO存储)",
   "website": "https://github.com/sky8282/Netease-navidrome-plugin",
   "permissions": {
     "users": {
@@ -35,6 +35,16 @@
     "schema": {
       "type": "object",
       "properties": {
+        "max_workers": {
+          "type": "integer",
+          "title": "后台并发刮削线程数，过高将有 api 受限的风险",
+          "default": 1
+        },
+        "queue_size": {
+          "type": "integer",
+          "title": "排队队列最大容量 (超过将抛弃当次请求，等待下次刮削)",
+          "default": 50
+        },
         "enable_debug_log": {
           "type": "boolean",
           "title": "开启详细 Debug 日志",
@@ -42,28 +52,28 @@
         },
         "enable_write_lyrics": {
           "type": "boolean",
-          "title": "写入本地歌词文件 (.lrc)",
+          "title": "写入本地歌词文件 (专辑文件夹/.lrc「也有可能是 CD1，CD2 里」)",
           "default": false
         },
         "enable_write_pdf": {
           "type": "boolean",
-          "title": "写入本地 PDF 文件 (.pdf)",
+          "title": "写入本地 PDF 文件 (专辑文件夹/.pdf)",
           "default": false
         },
         "enable_write_cover_image": {
           "type": "boolean",
-          "title": "写入本地专辑封面文件 (cover.jpg)",
-          "default": true
+          "title": "写入本地专辑封面文件 (专辑文件夹/cover.jpg)",
+          "default": false
         },
         "enable_write_artist_image": {
           "type": "boolean",
-          "title": "写入本地歌手头像文件 (歌手文件夹下的 artist.jpg)",
-          "default": true
+          "title": "写入本地歌手头像文件 (歌手文件夹/artist.jpg)",
+          "default": false
         },
         "enable_write_global_artist_image": {
           "type": "boolean",
-          "title": "写入全局歌手头像 (媒体库根目录 artist 文件夹下)",
-          "default": true
+          "title": "写入全局歌手头像 (媒体库根目录/artist/歌手名.jpg)",
+          "default": false
         },
         "enable_write_metadata": {
           "type": "boolean",
@@ -72,12 +82,12 @@
         },
         "enable_write_json": {
           "type": "boolean",
-          "title": "写入本地专辑元数据文件 (netease_metadata.json)",
+          "title": "写入本地专辑元数据文件 (专辑文件夹/netease_metadata.json)",
           "default": false
         },
         "enable_write_processed": {
           "type": "boolean",
-          "title": "写入本地处理记录文件 (netease_processed.txt)",
+          "title": "写入本地处理记录文件 (专辑文件夹/netease_processed.txt)",
           "default": false
         },
         "enable_lyrics": {
@@ -120,6 +130,20 @@
     "uiSchema": {
       "type": "VerticalLayout",
       "elements": [
+        {
+          "type": "Group",
+          "label": "🛡️ 性能与并发控制",
+          "elements": [
+            {
+              "type": "Control",
+              "scope": "#/properties/max_workers"
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/queue_size"
+            }
+          ]
+        },
         {
           "type": "Control",
           "scope": "#/properties/enable_debug_log"
