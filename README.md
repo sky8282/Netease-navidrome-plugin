@@ -20,7 +20,6 @@
     * 专辑封面               artist.jpg
     * 歌词                  曲目名.lrc
     * 专辑画册               专辑名.pdf（ 需 🇫🇷 法国区 Token ）
-    * 增量写入本地音轨元数据   ⚠️ 慎用 ⚠️
     * 专辑元数据             netease_metadata.json
     * 专辑曲目写入记录列表     netease_processed.txt
 * ⚡ 内置缓存（ KVStore - DAO 存储 ）减少 API 请求
