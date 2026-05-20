@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "Netease Music Plugin",
   "author": "sky8282",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "下载与写入本地：歌词、专辑封面、歌手头像、Qobuz 的 PDF 以及专辑元数据文件直写 (高并发列队保护与统一DAO存储)",
   "website": "https://github.com/sky8282/Netease-navidrome-plugin",
   "permissions": {
@@ -75,11 +75,6 @@
           "title": "写入全局歌手头像 (媒体库根目录/artist/歌手名.jpg)",
           "default": false
         },
-        "enable_write_metadata": {
-          "type": "boolean",
-          "title": "增量写入本地音轨元数据（请慎用）",
-          "default": false
-        },
         "enable_write_json": {
           "type": "boolean",
           "title": "写入本地专辑元数据文件 (专辑文件夹/netease_metadata.json)",
@@ -90,15 +85,15 @@
           "title": "写入本地处理记录文件 (专辑文件夹/netease_processed.txt)",
           "default": false
         },
-        "enable_lyrics": {
+        "enable_auto_download_on_play": {
           "type": "boolean",
-          "title": "全局歌词抓取 API (供某些客户端发出的请求)",
+          "title": "播放曲目时检测专辑封面，歌手头像，歌词 与 pdf",
           "default": false
         },
         "navidrome_user": {
           "type": "string",
-          "title": "请输入你的 navidrome 用户名，解决烦人的后台警报日志",
-          "default": ""
+          "title": "请输入你的 navidrome 用户名 (解决权限问题)",
+          "default": "admin"
         },
         "netease_cookie": {
           "type": "string",
@@ -170,10 +165,6 @@
         },
         {
           "type": "Control",
-          "scope": "#/properties/enable_write_metadata"
-        },
-        {
-          "type": "Control",
           "scope": "#/properties/enable_write_json"
         },
         {
@@ -182,7 +173,7 @@
         },
         {
           "type": "Control",
-          "scope": "#/properties/enable_lyrics"
+          "scope": "#/properties/enable_auto_download_on_play"
         },
         {
           "type": "Group",
