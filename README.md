@@ -22,7 +22,7 @@
     * 专辑元数据             netease_metadata.json
     * 专辑曲目写入记录列表     netease_processed.txt
 * ⚡ 内置缓存（ KVStore - DAO 存储 ）减少 API 请求
-* ⌛ 分布式分布式叫号排队系统，
+* ⌛ 分布式叫号排队系统，
     * 分布式并发槽位 ( Distributed Semaphore )，特别是 navidrome 全局风暴扫描时
     * 写后二次确认 ( Double-Check Locking )
     * 退让抖动休眠 ( Jitter Sleep )
